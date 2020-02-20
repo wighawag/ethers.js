@@ -247,6 +247,9 @@ function checkTransactionResponse(transaction: any): TransactionResponse {
     if (typeof(networkId) !== 'number') { networkId = 0; }
 
     result.networkId = networkId;
+    if (result.chainId == null && networkId != null) {
+        result.chainId = networkId;
+    }
 
     // 0x0000... should actually be null
     if (result.blockHash && result.blockHash.replace(/0/g, '') === 'x') {
@@ -573,6 +576,8 @@ export class BaseProvider extends Provider {
 
     private _doPoll(): void {
         this.getBlockNumber().then((blockNumber) => {
+            if (!this.polling) { return; }
+
             this._setFastBlockNumber(blockNumber);
 
             // If the block hasn't changed, meh.
@@ -666,6 +671,7 @@ export class BaseProvider extends Provider {
                             toBlock: blockNumber,
                             topics: topics
                         }
+
                         if (!filter.address) { delete filter.address; }
                         this.getLogs(filter).then((logs) => {
                             if (logs.length === 0) { return; }
@@ -716,6 +722,7 @@ export class BaseProvider extends Provider {
         setTimeout(() => {
             if (value && !this._poller) {
                 this._poller = setInterval(this._doPoll.bind(this), this.pollingInterval);
+                this._doPoll();
 
             } else if (!value && this._poller) {
                 clearInterval(this._poller);
@@ -1142,7 +1149,7 @@ export class BaseProvider extends Provider {
             // No ENS...
             if (!network.ensAddress) {
                 errors.throwError(
-                    'network does support ENS',
+                    'network does not support ENS',
                     errors.UNSUPPORTED_OPERATION,
                     { operation: 'ENS', network: network.name }
                 );
@@ -1174,7 +1181,10 @@ export class BaseProvider extends Provider {
         // If it is already an address, nothing to resolve
         try {
             return Promise.resolve(getAddress(name));
-        } catch (error) { }
+        } catch (error) {
+            // See #694
+            if (isHexString(name)) { throw error; }
+        }
 
         let self = this;
 
