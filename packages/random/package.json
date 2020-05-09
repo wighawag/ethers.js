@@ -1,9 +1,11 @@
 {
   "author": "Richard Moore <me@ricmoo.com>",
   "browser": "./lib/browser.js",
+  "browser.esm": "./lib.esm/browser.js",
+  "browser.umd": "./lib/browser.js",
   "dependencies": {
-    "@ethersproject/bytes": ">=5.0.0-beta.129",
-    "@ethersproject/logger": ">=5.0.0-beta.129"
+    "@ethersproject/bytes": ">=5.0.0-beta.137",
+    "@ethersproject/logger": ">=5.0.0-beta.137"
   },
   "description": "Random utility functions for ethers.",
   "devDependencies": {
@@ -29,7 +31,7 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "tarballHash": "0x6ed3e2f05cd31c30358878f837a03afd8227ae4e822d22e8589233d2e10f37f8",
+  "tarballHash": "0xdc4062a56ffee0446914c8c7b052d3d74b78c961dba739809f53765fb7b776b2",
   "types": "./lib/index.d.ts",
-  "version": "5.0.0-beta.133"
+  "version": "5.0.0-beta.136"
 }

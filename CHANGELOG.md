@@ -3,6 +3,138 @@ Changelog
 
 This change log is managed by `scripts/cmds/update-versions` but may be manually updated.
 
+During the v5-BETA, although attempts are made to minimize it, some of the APIs
+may change. It is generally recommended that you remove your `node_modules/`,
+`package-lock.json` (and similar files for yarn, etc.) and doing an `npm install`
+after upgrading to a newer version of the v5-BETA.
+
+ethers/v5.0.0-beta.186 (2020-05-08 15:27)
+-----------------------------------------
+
+  - Fix JsonRpcProvider out-of-order super call. ([#822](https://github.com/ethers-io/ethers.js/issues/822); [963197d](https://github.com/ethers-io/ethers.js/commit/963197d70c96e5970b431173c2cc782cb496674c))
+
+ethers/v5.0.0-beta.185 (2020-05-04 22:54)
+-----------------------------------------
+
+  - More robust FallbackProvider on clean exits. ([8eeda23](https://github.com/ethers-io/ethers.js/commit/8eeda23e989fcb0126bd20b17c67f62466d19259))
+  - Safer test suite reporter timer. ([657a039](https://github.com/ethers-io/ethers.js/commit/657a0394f56b51a13c691477c2b0dcf74678fd7c))
+  - Added goerli to AlchemyProvider tests. ([ab7c781](https://github.com/ethers-io/ethers.js/commit/ab7c78118ab80990a3e3368749599a1cf6e9d4ae))
+  - Added more robust poll event to Provider. ([dc48bfb](https://github.com/ethers-io/ethers.js/commit/dc48bfb7adb9334848c93173ba2c634f22a9a72f))
+  - Added goerli to AlchemyProvider. ([86670eb](https://github.com/ethers-io/ethers.js/commit/86670eb80e96fc4ba4e3664c9389f8130bbfea73))
+  - Removed Cloudflare from test suite; it is down again. ([17dc022](https://github.com/ethers-io/ethers.js/commit/17dc022603afdfe4147638ab4b2704bcef09533f))
+  - Prevent forceOutput in test reporter from crashing. ([cafd344](https://github.com/ethers-io/ethers.js/commit/cafd34460b194d78092021f1d7e0307130340b68))
+  - Stall FallbackProvider backends from requests if not in-sync. ([fa6904f](https://github.com/ethers-io/ethers.js/commit/fa6904fef35e7ab888221f3a0613bfe7e6df3594))
+  - Allow providers to detect their network after instantiation. ([#814](https://github.com/ethers-io/ethers.js/issues/814); [99ae946](https://github.com/ethers-io/ethers.js/commit/99ae946476a317a9d89e5d8f57cf37f8680bfa2b))
+  - Better messaging on low-level network errors. ([#814](https://github.com/ethers-io/ethers.js/issues/814); [0e3a66c](https://github.com/ethers-io/ethers.js/commit/0e3a66c82959a08f3f4e4ffbca3ae3792ff2548f))
+  - Manage FallbackProvider stalling without unref. ([#815](https://github.com/ethers-io/ethers.js/issues/815); [7b1a7c7](https://github.com/ethers-io/ethers.js/commit/7b1a7c7f31a3631e12c2a341b562983360e670e9))
+  - Only error on duplicate signatures in Contract ABI. ([#499](https://github.com/ethers-io/ethers.js/issues/499); [098d7ef](https://github.com/ethers-io/ethers.js/commit/098d7efb21bd648c2660342297d2419904a10925))
+  - Added getWebSocketProvider static method to InfuraProvider. ([a6c1174](https://github.com/ethers-io/ethers.js/commit/a6c1174dffe6dca1a3a64d1d472cec6e12372117))
+  - Fix WebSocketProvider responses when message result is null. ([#813](https://github.com/ethers-io/ethers.js/issues/813); [472e5b0](https://github.com/ethers-io/ethers.js/commit/472e5b07eab180baa12185c8f00e5079ce4c671f))
+  - Allow modifiers on Human-Readable ABI for tuples and arrays. ([83fba3d](https://github.com/ethers-io/ethers.js/commit/83fba3de25b524cc48975b1952f4319d63874205))
+  - Added initial renew support to ENS CLI. ([54dfb75](https://github.com/ethers-io/ethers.js/commit/54dfb757c4c88e4bcada1890c4016fadfb25581a))
+  - Allow contract filters to include OR-ed values. ([#437](https://github.com/ethers-io/ethers.js/issues/437); [28800d7](https://github.com/ethers-io/ethers.js/commit/28800d7681f3bab08f6d30a22f0813e04feee18a))
+
+ethers/v5.0.0-beta.184 (2020-04-28 04:58)
+-----------------------------------------
+
+  - Removed old EIP-1193 experimental provider; it can now be supported by Web3Provider as EIP-1193 is now backwards compatible. ([84c68ac](https://github.com/ethers-io/ethers.js/commit/84c68ac5c17b10897ade966d6c8fac1f1f66a4af))
+  - Fixed getLogs filter deserialization. ([#805](https://github.com/ethers-io/ethers.js/issues/805); [393c0c7](https://github.com/ethers-io/ethers.js/commit/393c0c74a91175adca2e25026dcdb9e6445afd8f))
+  - Added EIP-1193 support to Web3Provider. ([56af441](https://github.com/ethers-io/ethers.js/commit/56af4413b1dd1787db68985e0b612b63d86fdf7c))
+  - Minor typing-detected fixes. ([d1f3a42](https://github.com/ethers-io/ethers.js/commit/d1f3a42c119d5588eab667ec7bb6e71042cfb656))
+  - Added initial support for recoverable coding erros. ([#800](https://github.com/ethers-io/ethers.js/issues/800); [bda6623](https://github.com/ethers-io/ethers.js/commit/bda66230916e58e25a522e8430ce4de25091eb6b))
+  - More draconian Typing. ([14e6811](https://github.com/ethers-io/ethers.js/commit/14e6811bf7d7c38a3b5714dededcc883c185d814))
+  - Omit HID libraries for hardware-wallets package on unsupported environments. ([#798](https://github.com/ethers-io/ethers.js/issues/798); [2e24920](https://github.com/ethers-io/ethers.js/commit/2e24920d028d42908d0764ad4ca0b56b55f852d1), [5aefb43](https://github.com/ethers-io/ethers.js/commit/5aefb4303d2fdda62e7e5ddb644919f613d6016a))
+  - Make default constructor non-payable. ([#684](https://github.com/ethers-io/ethers.js/issues/684); [017ea0d](https://github.com/ethers-io/ethers.js/commit/017ea0d6bd22833e9d399ae6b818443786f17884))
+
+ethers/v5.0.0-beta.183 (2020-04-23 23:28)
+-----------------------------------------
+
+  - Fixed inconsistent log format in WebSocketProvider. ([#795](https://github.com/ethers-io/ethers.js/issues/795); [8e7751f](https://github.com/ethers-io/ethers.js/commit/8e7751f7dfb41e58f81c7918cf36c152c3209ae2))
+  - Added WebSocketProvider support for ENS names in filters. ([6707754](https://github.com/ethers-io/ethers.js/commit/6707754580490c5a801d6205af0841794d20b3c9))
+  - Fixed provider filtering by ENS name. ([aeeb75f](https://github.com/ethers-io/ethers.js/commit/aeeb75f74c3be11b9b3b2925fd73349070542e54))
+  - Fixed ContractFactory.deploy ignoring overrides. ([#796](https://github.com/ethers-io/ethers.js/issues/796); [8bb2a0f](https://github.com/ethers-io/ethers.js/commit/8bb2a0fd08f6f128a80444e3fd90c29e4cd7edfb))
+  - Fix median calculation for large block number deltas across FallbackProvider backends. ([fca5ccb](https://github.com/ethers-io/ethers.js/commit/fca5ccbc2052569e700a96dbb1de1c9cef7c966f))
+  - Work-around for Cloudflare not offering eth_blockNumber. ([8cf4b3c](https://github.com/ethers-io/ethers.js/commit/8cf4b3cf4598f4f3643d5ebe9c366466d398cb83))
+  - Added string spell-checking to library and fixed discovered typos. ([71d03c6](https://github.com/ethers-io/ethers.js/commit/71d03c6e3cab1aacb3e4e74d3966fbaa7db2ee06))
+  - Fixed getUrl for node 8. ([560adea](https://github.com/ethers-io/ethers.js/commit/560adeabb06a2ab483bcad162f02ccef41ebc245))
+  - Dependency security updates. ([da3b0bf](https://github.com/ethers-io/ethers.js/commit/da3b0bf0786fe8a95c68485d130ca59c597ffe4d))
+  - Fixes for dist builds without injected XMLHttpRequest. ([#789](https://github.com/ethers-io/ethers.js/issues/789), [#506](https://github.com/ethers-io/ethers.js/issues/506); [9ae6b70](https://github.com/ethers-io/ethers.js/commit/9ae6b70efb9f3d3251820403597085cfa30ace05))
+
+ethers/v5.0.0-beta.182 (2020-04-16 21:53)
+-----------------------------------------
+
+  - Added support for Contract event parsing error recovery. ([cc72f76](https://github.com/ethers-io/ethers.js/commit/cc72f76695572d235d7f5a5ad4dc1838a5fe884a))
+  - Fix provider log filters with zero topics. ([#785](https://github.com/ethers-io/ethers.js/issues/785); [4ef0e4f](https://github.com/ethers-io/ethers.js/commit/4ef0e4f7653226bf8cca86e065ad614e7288af96))
+
+ethers/v5.0.0-beta.181 (2020-04-15 18:23)
+-----------------------------------------
+
+  - Temporarily remove CloudflareProvider tests; it is down and breaking the tests. ([797abb7](https://github.com/ethers-io/ethers.js/commit/797abb726711499d96bf1c12c61e3bb1a7b4925d))
+  - Better error reporting for Fragments. ([7dcefcb](https://github.com/ethers-io/ethers.js/commit/7dcefcbf71ef337103639bbe3f4ad2625565651a))
+  - Fixed Contract filter unsubscribing. ([2eb3823](https://github.com/ethers-io/ethers.js/commit/2eb3823de4ba111cc0c746a0715fe6dd3d1b16da), [39c78f3](https://github.com/ethers-io/ethers.js/commit/39c78f37ceff9b8ec08329903dcba7bd53bd8661))
+  - Fixed WebSocketProvider filter events. ([#784](https://github.com/ethers-io/ethers.js/issues/784); [69f7077](https://github.com/ethers-io/ethers.js/commit/69f707762ed5939c5f52bf6dce5c5513aaf6fa1d))
+  - Added bitwise operations to BigNumber. ([#781](https://github.com/ethers-io/ethers.js/issues/781); [7498c18](https://github.com/ethers-io/ethers.js/commit/7498c18235c7566b2f652cddba991f55e0943da8), [284771e](https://github.com/ethers-io/ethers.js/commit/284771ea39b6f4ee9cdf75ce5feea9e6aa9a65c5))
+
+ethers/v5.0.0-beta.180 (2020-04-03 22:10)
+-----------------------------------------
+
+  - Correctly return the Provider in NonceManager. ([6caf7c2](https://github.com/ethers-io/ethers.js/commit/6caf7c292cd5f03741cd6b30053c3325c4f30a81))
+  - Fail earlier when resolving an ENS name that is not a string. ([2882546](https://github.com/ethers-io/ethers.js/commit/28825463517f8821392464ec2283ee59c431d928))
+  - Fixed mutabilityState calculation for function fragments. ([#762](https://github.com/ethers-io/ethers.js/issues/762); [6526de0](https://github.com/ethers-io/ethers.js/commit/6526de016fda5403474dad61ee59acc62ee25ebc), [d7c8b35](https://github.com/ethers-io/ethers.js/commit/d7c8b355a049b36068b0525a357c6278639a8d58))
+  - Force Log properties to be non-optional. ([#415](https://github.com/ethers-io/ethers.js/issues/415); [da412f6](https://github.com/ethers-io/ethers.js/commit/da412f660723d1c411484e74970ce4eb166374c2), [8ad26f0](https://github.com/ethers-io/ethers.js/commit/8ad26f0ff42614a6c40e735cb6fffd36874da1a0))
+  - Fixed Signer call not forwarding blockTag. ([#768](https://github.com/ethers-io/ethers.js/issues/768); [053a2d7](https://github.com/ethers-io/ethers.js/commit/053a2d7fcdb4ca4c9bfd0bee0f42e0187d3db477))
+
+ethers/v5.0.0-beta.179 (2020-03-31 23:40)
+-----------------------------------------
+
+  - Fixed ENS CLI lookup for Website. ([0f144c6](https://github.com/ethers-io/ethers.js/commit/0f144c6cc03082026080782356b940af3389b34e))
+  - Fixed getEtherPrice for EtherscanProvider. ([#776](https://github.com/ethers-io/ethers.js/issues/776); [6c71b51](https://github.com/ethers-io/ethers.js/commit/6c71b515126d8ef3cea5a1aec814c4cab56cc1a5))
+  - Fixed ENS CLI tool set-websites and added set-name. ([70cffb6](https://github.com/ethers-io/ethers.js/commit/70cffb6a5166a79a54e02b03b6a7ec0085407e07))
+
+ethers/v5.0.0-beta.178 (2020-03-30 22:14)
+-----------------------------------------
+
+  - Fixed Event args keyword access. ([2692e78](https://github.com/ethers-io/ethers.js/commit/2692e783b40ce16207fa1a8e8513ebb5455fd2d0), [092ce9b](https://github.com/ethers-io/ethers.js/commit/092ce9bcc2abf92c40550c4a990a8e2c889cc250))
+  - Updating TypeScript library and fixing some audit issues. ([bd32ee0](https://github.com/ethers-io/ethers.js/commit/bd32ee0af5b25a435e5896773d8bfd482d3adcaf))
+
+ethers/v5.0.0-beta.177 (2020-03-21 12:46)
+-----------------------------------------
+
+  - Abstracted JSON-RPC parameter generation for others to use. ([030f65e](https://github.com/ethers-io/ethers.js/commit/030f65e66ce059d69d8d77973d5c3190745eaac2))
+  - Updated RLP package to use Logger instead of bare errors. ([390497f](https://github.com/ethers-io/ethers.js/commit/390497f38964a052837f6c0e7c96efe74c668517))
+  - Fixed log level filtering for Logger. ([#379](https://github.com/ethers-io/ethers.js/issues/379); [72c8992](https://github.com/ethers-io/ethers.js/commit/72c89922a4e1b77295414c8e0717a7373f2397b8))
+  - Throw errors when trying to RLP encode integers. ([9ea16e5](https://github.com/ethers-io/ethers.js/commit/9ea16e5172928962792ba4c0273e23db373409e0))
+  - Added delays to provider tests to prevent throttling causing failed tests. ([3e44aac](https://github.com/ethers-io/ethers.js/commit/3e44aac8f199ec09babb20c4af2ee668e0ab05a1))
+
+ethers/v5.0.0-beta.176 (2020-03-12 19:10)
+-----------------------------------------
+
+  - Checking in initial Eip1193Bridge (experimental). ([2c78f0b](https://github.com/ethers-io/ethers.js/commit/2c78f0bf265a0f7c9f4cfc1bc79ecd4629b59c49))
+  - Added initial WebSocketProvider. ([#141](https://github.com/ethers-io/ethers.js/issues/141); [117a5dd](https://github.com/ethers-io/ethers.js/commit/117a5dd7ffa783c4335c0b87621437447cd499d0))
+  - Renamed properties based on community recommendations; estimate to estimateGas and addressPromise to resovledAddress. ([fe3b3fa](https://github.com/ethers-io/ethers.js/commit/fe3b3fa1aded67827fec1131931d95d8153d8f32))
+  - Better error reporting and fixed look-ahead for data labels. ([e52312e](https://github.com/ethers-io/ethers.js/commit/e52312e783b8d0fdd7e9992716cbe2e179751b38))
+
+ethers/v5.0.0-beta.175 (2020-02-27 19:53)
+-----------------------------------------
+
+  - Fix address-less filter listening in Provider. ([#741](https://github.com/ethers-io/ethers.js/issues/741); [64dccb2](https://github.com/ethers-io/ethers.js/commit/64dccb275c68ebb40328350d4ab5be0f29b8a02e))
+  - Added sync version of wallet decryption. ([0ad94cd](https://github.com/ethers-io/ethers.js/commit/0ad94cdf8137259bedb38c0dc949b61570bcdac0), [6809c37](https://github.com/ethers-io/ethers.js/commit/6809c370c027aea148466c00d3ce09c6d0ee6ddc))
+
+ethers/v5.0.0-beta.175 (2020-02-27 19:38)
+-----------------------------------------
+
+  - Fix address-less filter listening in Provider. ([#741](https://github.com/ethers-io/ethers.js/issues/741); [64dccb2](https://github.com/ethers-io/ethers.js/commit/64dccb275c68ebb40328350d4ab5be0f29b8a02e))
+  - Added sync version of wallet decryption. ([0ad94cd](https://github.com/ethers-io/ethers.js/commit/0ad94cdf8137259bedb38c0dc949b61570bcdac0))
+
+ethers/v5.0.0-beta.174 (2020-02-25 14:57)
+-----------------------------------------
+
+  - Reduced default Provider quorum for testnets. ([1cfab31](https://github.com/ethers-io/ethers.js/commit/1cfab3173c3d0519beffc054efe73f70b7d28501))
+  - Added JSON-RPC debugging on error responses. ([ad27600](https://github.com/ethers-io/ethers.js/commit/ad27600c699827858e7343adff2d4fa622248e42))
+  - Fixed setLogLevel to affect global logging. ([ac51a88](https://github.com/ethers-io/ethers.js/commit/ac51a88c2913d7055e050c91d7d96bb42abf6656))
+  - Renamed interface getTopic to getEventTopic. ([f61f34b](https://github.com/ethers-io/ethers.js/commit/f61f34bfb295bafee3b7ee426efa696aaa9bbafe))
+  - Fix log parsing when no matching topic hash is found. ([#733](https://github.com/ethers-io/ethers.js/issues/733); [a5d2ec5](https://github.com/ethers-io/ethers.js/commit/a5d2ec534f75b21eebe69a789a3c43c33014a825), [4b8e198](https://github.com/ethers-io/ethers.js/commit/4b8e198bf209fcf0aea55018d8940355ea4345de), [89ac9f4](https://github.com/ethers-io/ethers.js/commit/89ac9f4f298ac340c4429e8ebdacd29962eba7f4))
+
 ethers/v5.0.0-beta.173 (2020-02-12 17:09)
 -----------------------------------------
 

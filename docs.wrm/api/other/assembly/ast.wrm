@@ -1,5 +1,3 @@
-_title: Abstract Syntax Tree
-
 _section: Abstract Syntax Tree @<asm-ast>
 
 Parsing a file using the [Ethers ASM Dialect](asm-dialect) will
@@ -46,7 +44,7 @@ A **ValueNode** is a node which may manipulate the stack.
 _heading: LiteralNode @<asm-literalnode> @INHERIT<[[asm-valuenode]]> @SRC<asm:class.LiteralNode>
 
 _property: literalNode.value => string
-The literal value of this node, which may be a [[datahexstring]] or
+The literal value of this node, which may be a [[DataHexString]] or
 string of a decimal number.
 
 _property: literalNode.verbatim => boolean

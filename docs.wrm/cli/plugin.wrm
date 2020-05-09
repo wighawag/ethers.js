@@ -1,6 +1,4 @@
-_title: Making Your Own
-
-_section: Making Your Own
+_section: Making Your Own @<cli-diy>
 
 The //cli// library is meant to make it easy to create command
 line utilities of your own.
@@ -56,20 +54,20 @@ make sense.
 Once the prepareArguments is complete (the returned promise is resolved), the ``run``
 is called.
 
-_property: plugin.network => [[provider-network]]
+_property: plugin.network => [[providers-Network]]
 The network this plugin is running for.
 
-_property: plugin.provider => [[provider]]
+_property: plugin.provider => [[Provider]]
 The provider for this plugin is running for.
 
-_property: plugin.accounts => Array<[[signer]]>
+_property: plugin.accounts => Array<[[Signer]]>
 The accounts passed into the plugin using ``--account``,
 ``--account-rpc`` and ``--account-void`` which this plugin can use.
 
-_property: plugin.gasLimit => [[bignumber]]
+_property: plugin.gasLimit => [[BigNumber]]
 The gas limit this plugin should use. This is null if unspecified.
 
-_property: plugin.gasPrice => [[bignumber]]
+_property: plugin.gasPrice => [[BigNumber]]
 The gas price this plugin should use. This is null if unspecified.
 
 _property: plugin.nonce => number
@@ -116,7 +114,20 @@ _subsection: ArgParser @<cli-argparser> @SRC<cli:class.ArgParser>
 The **ArgParser** is used to parse a command line into flags, options
 and arguments.
 
-_code: plugin.txt
+_code: @lang<shell>
+
+/home/ethers> ethers --account wallet.json --yes send ricmoo.eth 1.0
+#  An Option ----------^                     ^   ^
+#    - name =  "account"                     |   |
+#    - value = "wallet.json"                 |   |
+#  A Flag -----------------------------------+   |
+#    - name  = "yes"                             |
+#    - value = true                              |
+#  Arguments ------------------------------------+
+#    - count = 3
+#    - [ "send", "ricmoo.eth", "1.0" ]
+
+_null:
 
 Flags are simple binary options (such as the ``--yes``), which are true if present
 otherwise false.

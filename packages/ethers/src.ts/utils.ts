@@ -1,6 +1,6 @@
 "use strict";
 
-import { AbiCoder, defaultAbiCoder, EventFragment, FormatTypes, Fragment, FunctionFragment, Indexed, Interface, ParamType } from "@ethersproject/abi";
+import { AbiCoder, checkResultErrors, defaultAbiCoder, EventFragment, FormatTypes, Fragment, FunctionFragment, Indexed, Interface, ParamType, Result } from "@ethersproject/abi";
 import { getAddress, getCreate2Address, getContractAddress, getIcapAddress, isAddress } from "@ethersproject/address";
 import * as base64 from "@ethersproject/base64";
 import { arrayify, concat, hexDataSlice, hexDataLength, hexlify, hexStripZeros, hexValue, hexZeroPad, isBytes, isBytesLike, isHexString, joinSignature, zeroPad, splitSignature, stripZeros } from "@ethersproject/bytes";
@@ -9,9 +9,9 @@ import { defaultPath, entropyToMnemonic, HDNode, isValidMnemonic, mnemonicToEntr
 import { getJsonWalletAddress } from "@ethersproject/json-wallets";
 import { keccak256 } from "@ethersproject/keccak256";
 import { Logger } from "@ethersproject/logger";
-import { sha256 } from "@ethersproject/sha2";
+import { computeHmac, ripemd160, sha256, sha512 } from "@ethersproject/sha2";
 import { keccak256 as solidityKeccak256, pack as solidityPack, sha256 as soliditySha256 } from "@ethersproject/solidity";
-import { randomBytes } from "@ethersproject/random";
+import { randomBytes, shuffled } from "@ethersproject/random";
 import { checkProperties, deepCopy, defineReadOnly, getStatic, resolveProperties, shallowCopy } from "@ethersproject/properties";
 import * as RLP from "@ethersproject/rlp";
 import { computePublicKey, recoverPublicKey, SigningKey } from "@ethersproject/signing-key";
@@ -36,7 +36,7 @@ import { Bytes, BytesLike, Hexable } from "@ethersproject/bytes"
 import { Mnemonic } from "@ethersproject/hdnode";
 import { EncryptOptions, ProgressCallback } from "@ethersproject/json-wallets";
 import { Utf8ErrorFunc } from "@ethersproject/strings";
-import { ConnectionInfo, FetchJsonResponse, OnceBlockable, PollOptions } from "@ethersproject/web";
+import { ConnectionInfo, FetchJsonResponse, OnceBlockable, OncePollable, PollOptions } from "@ethersproject/web";
 
 ////////////////////////
 // Exports
@@ -50,6 +50,9 @@ export {
     FunctionFragment,
     ParamType,
     FormatTypes,
+
+    checkResultErrors,
+    Result,
 
     Logger,
 
@@ -119,10 +122,14 @@ export {
 
     commify,
 
+    computeHmac,
     keccak256,
+    ripemd160,
     sha256,
+    sha512,
 
     randomBytes,
+    shuffled,
 
     solidityPack,
     solidityKeccak256,
@@ -177,6 +184,7 @@ export {
 
     ConnectionInfo,
     OnceBlockable,
+    OncePollable,
     PollOptions,
     FetchJsonResponse,
 

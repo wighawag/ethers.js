@@ -107,7 +107,7 @@ describe('ABI Coder Encoding', function () {
         var types = JSON.parse(test.types);
         var result = test.result;
         var title = test.name + ' => (' + test.types + ') = (' + test.normalizedValues + ')';
-        it(('encodes paramters - ' + test.name + ' - ' + test.types), function () {
+        it(('encodes parameters - ' + test.name + ' - ' + test.types), function () {
             this.timeout(120000);
             var encoded = coder.encode(types, values);
             assert_1.default.equal(encoded, result, 'encoded data - ' + title);
@@ -477,5 +477,36 @@ describe('Test Filters', function () {
     ];
     Tests.forEach(function (test) {
         doTest(test);
+    });
+});
+describe("Test ParamType Parser", function () {
+    var Tests = [
+        { type: "address", format: "address" },
+        { type: "address foo", format: "address foo" },
+        { type: "address payable", format: "address" },
+        { type: "address payable foo", format: "address foo" },
+        { type: "uint", format: "uint256" },
+        { type: "uint16", format: "uint16" },
+        { type: "uint256", format: "uint256" },
+        { type: "int", format: "int256" },
+        { type: "int16", format: "int16" },
+        { type: "int256", format: "int256" },
+        { type: "string", format: "string" },
+        { type: "string memory", format: "string" },
+        { type: "string calldata", format: "string" },
+        { type: "string storage", format: "string" },
+        { type: "string memory foo", format: "string foo" },
+        { type: "string foo", format: "string foo" },
+        { type: "string[]", format: "string[]" },
+        { type: "string[5]", format: "string[5]" },
+        { type: "uint[] memory", format: "uint256[]" },
+        { type: "tuple(address a, string[] b) memory foo", format: "tuple(address a, string[] b) foo" },
+    ];
+    Tests.forEach(function (test) {
+        it("allows correct modifiers " + JSON.stringify(test.type), function () {
+            var paramType = ethers_1.ethers.utils.ParamType.from(test.type);
+            //console.log(test, paramType.format("full"));
+            assert_1.default.equal(paramType.format("full"), test.format);
+        });
     });
 });

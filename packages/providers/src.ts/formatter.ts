@@ -86,7 +86,6 @@ export class Formatter {
         };
 
         formats.receiptLog = {
-            transactionLogIndex: Formatter.allowNull(number),
             transactionIndex: number,
             blockNumber: number,
             transactionHash: hash,
@@ -181,7 +180,7 @@ export class Formatter {
             if (value === "true") { return true; }
             if (value === "false") { return false; }
         }
-        throw new Error("invaid boolean - " + value);
+        throw new Error("invalid boolean - " + value);
     }
 
     hex(value: any, strict?: boolean): string {
@@ -381,18 +380,12 @@ export class Formatter {
     }
 
     receipt(value: any): TransactionReceipt {
-        //let status = transactionReceipt.status;
-        //let root = transactionReceipt.root;
-
         const result: TransactionReceipt = Formatter.check(this.formats.receipt, value);
-        result.logs.forEach((entry, index) => {
-            if (entry.transactionLogIndex == null) {
-                entry.transactionLogIndex = index;
-            }
-        });
+
         if (value.status != null) {
             result.byzantium = true;
         }
+
         return result;
     }
 

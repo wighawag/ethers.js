@@ -1,3 +1,7 @@
+"use strict";
+
+import path from "path";
+
 import resolve from 'rollup-plugin-node-resolve';
 import commonjs from 'rollup-plugin-commonjs';
 import json from 'rollup-plugin-json';
@@ -6,9 +10,10 @@ import { terser } from "rollup-plugin-terser";
 
 import { createFilter } from 'rollup-pluginutils';
 
-function Replacer(options = {}) {
+function Replacer(basePath, options = {}) {
     const filter = createFilter(options.include, options.exclude);
-    let suffixes = Object.keys(options.replace);
+    const suffixes = Object.keys(options.replace);
+    const pathUp = path.resolve(basePath, "..");
     return {
         name: "file-replacer",
         transform(code, id) {
@@ -24,14 +29,20 @@ function Replacer(options = {}) {
             for (let i = 0; i < suffixes.length; i++) {
                 const suffix = suffixes[i];
                 if (id.match(new RegExp(suffix))) {
-                    let newCode = options.replace[suffix];
-                    console.log(`Replace: ${ id } (${ code.length } => ${ newCode.length })`);
+                    const newCode = options.replace[suffix];
+                    console.log(`Replace: ${ id.substring(pathUp.length + 1) } (${ code.length } => ${ newCode.length })`);
                     return {
                         code: newCode,
                         map: { mappings: '' }
                     };
                 }
+
             }
+
+            if (id.substring(0, basePath.length) !== basePath) {
+                console.log(`Keep:    ${ id.substring(pathUp.length + 1) }`);
+            }
+
             return null;
         }
     };
@@ -46,11 +57,7 @@ const ellipticPackage = (function() {
     return JSON.stringify({ version: ellipticPackage.version });
 })();
 
-export default commandLineArgs => {
-    let minify = commandLineArgs.configMinify;
-    let buildModule = commandLineArgs.configModule;
-    let testing = commandLineArgs.configTest;
-
+function getConfig(minify, buildModule, testing) {
     let input = "packages/ethers/lib/index.js"
     let output = [ "umd" ];
     let format = "umd";
@@ -63,7 +70,7 @@ export default commandLineArgs => {
         mainFields = [ "browser", "module", "main" ];
     }
 
-    const replacer = Replacer({
+    const replacer = Replacer(path.resolve("packages"), {
         replace: {
             // Remove the precomputed secp256k1 points
             "elliptic/lib/elliptic/precomputed/secp256k1.js$": undef,
@@ -95,8 +102,9 @@ export default commandLineArgs => {
         commonjs({
             namedExports: {
                 "bn.js": [ "BN" ],
+                "hash.js": [ "hmac", "ripemd160", "sha256", "sha512" ],
                 "elliptic": [ "ec" ],
-                "scrypt-js": [ "scrypt" ],
+                "scrypt-js": [ "scrypt", "syncScrypt" ],
             },
         }),
     ];
@@ -106,9 +114,11 @@ export default commandLineArgs => {
         plugins.push(terser());
     }
 
-    let outputFile = (("packages/") +
-                      (testing ? "tests": "ethers") +
-                      ("/dist/ethers." + output.join(".") + ".js"));
+    const outputFile = [
+        "packages",
+        (testing ? "tests": "ethers"),
+        ("/dist/ethers." + output.join(".") + ".js")
+    ].join("/");
 
     return {
       input: input,
@@ -122,4 +132,14 @@ export default commandLineArgs => {
       treeshake: false,
       plugins: plugins
   };
+}
+
+export default commandLineArgs => {
+    const testing = commandLineArgs.configTest;
+    const buildModule = commandLineArgs.configModule;
+
+    return [
+        getConfig(false, buildModule, testing),
+        getConfig(true, buildModule, testing),
+    ];
 }

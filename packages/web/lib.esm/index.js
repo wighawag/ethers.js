@@ -8,42 +8,19 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
-import fetch from "cross-fetch";
 import { encode as base64Encode } from "@ethersproject/base64";
 import { shallowCopy } from "@ethersproject/properties";
 import { toUtf8Bytes } from "@ethersproject/strings";
 import { Logger } from "@ethersproject/logger";
 import { version } from "./_version";
 const logger = new Logger(version);
-function getResponse(response) {
-    const headers = {};
-    if (response.headers.forEach) {
-        response.headers.forEach((value, key) => {
-            headers[key.toLowerCase()] = value;
-        });
-    }
-    else {
-        ((response.headers).keys)().forEach((key) => {
-            headers[key.toLowerCase()] = response.headers.get(key);
-        });
-    }
-    return {
-        statusCode: response.status,
-        status: response.statusText,
-        headers: headers
-    };
-}
+import { getUrl } from "./geturl";
 export function fetchJson(connection, json, processFunc) {
     const headers = {};
     let url = null;
     // @TODO: Allow ConnectionInfo to override some of these values
     const options = {
         method: "GET",
-        mode: "cors",
-        cache: "no-cache",
-        credentials: "same-origin",
-        redirect: "follow",
-        referrer: "client",
     };
     let allow304 = false;
     let timeout = 2 * 60 * 1000;
@@ -113,31 +90,30 @@ export function fetchJson(connection, json, processFunc) {
     const runningFetch = (function () {
         return __awaiter(this, void 0, void 0, function* () {
             let response = null;
-            let body = null;
-            while (true) {
-                try {
-                    response = yield fetch(url, options);
-                }
-                catch (error) {
-                    console.log(error);
-                }
-                body = yield response.text();
-                if (allow304 && response.status === 304) {
-                    body = null;
-                    break;
-                }
-                else if (!response.ok) {
-                    runningTimeout.cancel();
-                    logger.throwError("bad response", Logger.errors.SERVER_ERROR, {
-                        status: response.status,
-                        body: body,
-                        type: response.type,
-                        url: response.url
+            try {
+                response = yield getUrl(url, options);
+            }
+            catch (error) {
+                response = error.response;
+                if (response == null) {
+                    logger.throwError("missing response", Logger.errors.SERVER_ERROR, {
+                        serverError: error,
+                        url: url
                     });
                 }
-                else {
-                    break;
-                }
+            }
+            let body = response.body;
+            if (allow304 && response.statusCode === 304) {
+                body = null;
+            }
+            else if (response.statusCode < 200 || response.statusCode >= 300) {
+                runningTimeout.cancel();
+                logger.throwError("bad response", Logger.errors.SERVER_ERROR, {
+                    status: response.statusCode,
+                    headers: response.headers,
+                    body: body,
+                    url: url
+                });
             }
             runningTimeout.cancel();
             let json = null;
@@ -155,7 +131,7 @@ export function fetchJson(connection, json, processFunc) {
             }
             if (processFunc) {
                 try {
-                    json = yield processFunc(json, getResponse(response));
+                    json = yield processFunc(json, response);
                 }
                 catch (error) {
                     logger.throwError("processing response error", Logger.errors.SERVER_ERROR, {
@@ -213,6 +189,9 @@ export function poll(func, options) {
                     if (cancel()) {
                         resolve(result);
                     }
+                }
+                else if (options.oncePoll) {
+                    options.oncePoll.once("poll", check);
                 }
                 else if (options.onceBlock) {
                     options.onceBlock.once("block", check);

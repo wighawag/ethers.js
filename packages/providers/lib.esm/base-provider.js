@@ -34,7 +34,7 @@ function checkTopic(topic) {
 function serializeTopics(topics) {
     // Remove trailing null AND-topics; they are redundant
     topics = topics.slice();
-    while (topics[topics.length - 1] == null) {
+    while (topics.length > 0 && topics[topics.length - 1] == null) {
         topics.pop();
     }
     return topics.map((topic) => {
@@ -55,10 +55,17 @@ function serializeTopics(topics) {
     }).join("&");
 }
 function deserializeTopics(data) {
+    if (data === "") {
+        return [];
+    }
     return data.split(/&/g).map((topic) => {
-        return topic.split("|").map((topic) => {
+        if (topic === "") {
+            return [];
+        }
+        const comps = topic.split("|").map((topic) => {
             return ((topic === "null") ? null : topic);
         });
+        return ((comps.length === 1) ? comps[0] : comps);
     });
 }
 function getEventTag(eventName) {
@@ -93,42 +100,83 @@ function getTime() {
 /**
  *  EventType
  *   - "block"
+ *   - "poll"
  *   - "pending"
  *   - "error"
  *   - filter
  *   - topics array
  *   - transaction hash
  */
-class Event {
+export class Event {
     constructor(tag, listener, once) {
         defineReadOnly(this, "tag", tag);
         defineReadOnly(this, "listener", listener);
         defineReadOnly(this, "once", once);
     }
+    get event() {
+        switch (this.type) {
+            case "tx":
+                return this.hash;
+            case "filter":
+                return this.filter;
+        }
+        return this.tag;
+    }
+    get type() {
+        return this.tag.split(":")[0];
+    }
+    get hash() {
+        const comps = this.tag.split(":");
+        if (comps[0] !== "tx") {
+            return null;
+        }
+        return comps[1];
+    }
+    get filter() {
+        const comps = this.tag.split(":");
+        if (comps[0] !== "filter") {
+            return null;
+        }
+        const address = comps[1];
+        const topics = deserializeTopics(comps[2]);
+        const filter = {};
+        if (topics.length > 0) {
+            filter.topics = topics;
+        }
+        if (address && address !== "*") {
+            filter.address = address;
+        }
+        return filter;
+    }
     pollable() {
-        return (this.tag.indexOf(":") >= 0 || this.tag === "block" || this.tag === "pending");
+        return (this.tag.indexOf(":") >= 0 || this.tag === "block" || this.tag === "pending" || this.tag === "poll");
     }
 }
 let defaultFormatter = null;
 let nextPollId = 1;
 export class BaseProvider extends Provider {
+    /**
+     *  ready
+     *
+     *  A Promise<Network> that resolves only once the provider is ready.
+     *
+     *  Sub-classes that call the super with a network without a chainId
+     *  MUST set this. Standard named networks have a known chainId.
+     *
+     */
     constructor(network) {
         logger.checkNew(new.target, Provider);
         super();
         this.formatter = new.target.getFormatter();
         if (network instanceof Promise) {
-            defineReadOnly(this, "ready", network.then((network) => {
-                defineReadOnly(this, "_network", network);
-                return network;
-            }));
+            this._networkPromise = network;
             // Squash any "unhandled promise" errors; that do not need to be handled
-            this.ready.catch((error) => { });
+            network.catch((error) => { });
         }
         else {
             const knownNetwork = getStatic((new.target), "getNetwork")(network);
             if (knownNetwork) {
                 defineReadOnly(this, "_network", knownNetwork);
-                defineReadOnly(this, "ready", Promise.resolve(this._network));
             }
             else {
                 logger.throwArgumentError("invalid network", "network", network);
@@ -141,6 +189,40 @@ export class BaseProvider extends Provider {
         this._pollingInterval = 4000;
         this._emitted = { block: -2 };
         this._fastQueryDate = 0;
+    }
+    _ready() {
+        return __awaiter(this, void 0, void 0, function* () {
+            if (this._network == null) {
+                let network = null;
+                if (this._networkPromise) {
+                    try {
+                        network = yield this._networkPromise;
+                    }
+                    catch (error) { }
+                }
+                // Try the Provider's network detection (this MUST throw if it cannot)
+                if (network == null) {
+                    network = yield this.detectNetwork();
+                }
+                // This should never happen; every Provider sub-class should have
+                // suggested a network by here (or thrown).
+                if (!network) {
+                    logger.throwError("no network detected", Logger.errors.UNKNOWN_ERROR, {});
+                }
+                defineReadOnly(this, "_network", network);
+            }
+            return this._network;
+        });
+    }
+    get ready() {
+        return this._ready();
+    }
+    detectNetwork() {
+        return __awaiter(this, void 0, void 0, function* () {
+            return logger.throwError("provider does not support network detection", Logger.errors.UNSUPPORTED_OPERATION, {
+                operation: "provider.detectNetwork"
+            });
+        });
     }
     static getFormatter() {
         if (defaultFormatter == null) {
@@ -183,8 +265,11 @@ export class BaseProvider extends Provider {
             const runners = [];
             const blockNumber = yield this._getInternalBlockNumber(100 + this.pollingInterval / 2);
             this._setFastBlockNumber(blockNumber);
+            // Emit a poll event after we have the latest (fast) block number
+            this.emit("poll", pollId, blockNumber);
             // If the block has not changed, meh.
             if (blockNumber === this._lastBlockNumber) {
+                this.emit("didPoll", pollId);
                 return;
             }
             // First polling cycle, trigger a "block" events
@@ -224,10 +309,9 @@ export class BaseProvider extends Provider {
             }
             // Find all transaction hashes we are waiting on
             this._events.forEach((event) => {
-                const comps = event.tag.split(":");
-                switch (comps[0]) {
+                switch (event.type) {
                     case "tx": {
-                        const hash = comps[1];
+                        const hash = event.hash;
                         let runner = this.getTransactionReceipt(hash).then((receipt) => {
                             if (!receipt || receipt.blockNumber == null) {
                                 return null;
@@ -240,16 +324,9 @@ export class BaseProvider extends Provider {
                         break;
                     }
                     case "filter": {
-                        const topics = deserializeTopics(comps[2]);
-                        const filter = {
-                            address: comps[1],
-                            fromBlock: this._lastBlockNumber + 1,
-                            toBlock: blockNumber,
-                            topics: topics
-                        };
-                        if (!filter.address) {
-                            delete filter.address;
-                        }
+                        const filter = event.filter;
+                        filter.fromBlock = this._lastBlockNumber + 1;
+                        filter.toBlock = blockNumber;
                         const runner = this.getLogs(filter).then((logs) => {
                             if (logs.length === 0) {
                                 return;
@@ -259,7 +336,6 @@ export class BaseProvider extends Provider {
                                 this._emitted["t:" + log.transactionHash] = log.blockNumber;
                                 this.emit(filter, log);
                             });
-                            return null;
                         }).catch((error) => { this.emit("error", error); });
                         runners.push(runner);
                         break;
@@ -286,22 +362,38 @@ export class BaseProvider extends Provider {
         return this.ready;
     }
     get blockNumber() {
-        return this._fastBlockNumber;
+        this._getInternalBlockNumber(100 + this.pollingInterval / 2).then((blockNumber) => {
+            this._setFastBlockNumber(blockNumber);
+        });
+        return (this._fastBlockNumber != null) ? this._fastBlockNumber : -1;
     }
     get polling() {
         return (this._poller != null);
     }
     set polling(value) {
-        setTimeout(() => {
-            if (value && !this._poller) {
-                this._poller = setInterval(this.poll.bind(this), this.pollingInterval);
-                this.poll();
+        if (value && !this._poller) {
+            this._poller = setInterval(this.poll.bind(this), this.pollingInterval);
+            if (!this._bootstrapPoll) {
+                this._bootstrapPoll = setTimeout(() => {
+                    this.poll();
+                    // We block additional polls until the polling interval
+                    // is done, to prevent overwhelming the poll function
+                    this._bootstrapPoll = setTimeout(() => {
+                        // If polling was disabled, something may require a poke
+                        // since starting the bootstrap poll and it was disabled
+                        if (!this._poller) {
+                            this.poll();
+                        }
+                        // Clear out the bootstrap so we can do another
+                        this._bootstrapPoll = null;
+                    }, this.pollingInterval);
+                }, 0);
             }
-            else if (!value && this._poller) {
-                clearInterval(this._poller);
-                this._poller = null;
-            }
-        }, 0);
+        }
+        else if (!value && this._poller) {
+            clearInterval(this._poller);
+            this._poller = null;
+        }
     }
     get pollingInterval() {
         return this._pollingInterval;
@@ -538,7 +630,7 @@ export class BaseProvider extends Provider {
                 }
                 result[key] = this._getBlockTag(filter[key]);
             });
-            return this.formatter.filter(yield resolveProperties(filter));
+            return this.formatter.filter(yield resolveProperties(result));
         });
     }
     call(transaction, blockTag) {
@@ -786,6 +878,9 @@ export class BaseProvider extends Provider {
                     throw error;
                 }
             }
+            if (typeof (name) !== "string") {
+                logger.throwArgumentError("invalid ENS name", "name", name);
+            }
             // Get the addr from the resovler
             const resolverAddress = yield this._getResolver(name);
             if (!resolverAddress) {
@@ -843,22 +938,16 @@ export class BaseProvider extends Provider {
     perform(method, params) {
         return logger.throwError(method + " not implemented", Logger.errors.NOT_IMPLEMENTED, { operation: method });
     }
-    _startPending() {
-        console.log("WARNING: this provider does not support pending events");
+    _startEvent(event) {
+        this.polling = (this._events.filter((e) => e.pollable()).length > 0);
     }
-    _stopPending() {
-    }
-    // Returns true if there are events that still require polling
-    _checkPolling() {
+    _stopEvent(event) {
         this.polling = (this._events.filter((e) => e.pollable()).length > 0);
     }
     _addEventListener(eventName, listener, once) {
-        this._events.push(new Event(getEventTag(eventName), listener, once));
-        if (eventName === "pending") {
-            this._startPending();
-        }
-        // Do we still now have any events that require polling?
-        this._checkPolling();
+        const event = new Event(getEventTag(eventName), listener, once);
+        this._events.push(event);
+        this._startEvent(event);
         return this;
     }
     on(eventName, listener) {
@@ -869,6 +958,7 @@ export class BaseProvider extends Provider {
     }
     emit(eventName, ...args) {
         let result = false;
+        let stopped = [];
         let eventTag = getEventTag(eventName);
         this._events = this._events.filter((event) => {
             if (event.tag !== eventTag) {
@@ -878,10 +968,13 @@ export class BaseProvider extends Provider {
                 event.listener.apply(this, args);
             }, 0);
             result = true;
-            return !(event.once);
+            if (event.once) {
+                stopped.push(event);
+                return false;
+            }
+            return true;
         });
-        // Do we still have any events that require polling? ("once" events remove themselves)
-        this._checkPolling();
+        stopped.forEach((event) => { this._stopEvent(event); });
         return result;
     }
     listenerCount(eventName) {
@@ -906,6 +999,7 @@ export class BaseProvider extends Provider {
         if (listener == null) {
             return this.removeAllListeners(eventName);
         }
+        const stopped = [];
         let found = false;
         let eventTag = getEventTag(eventName);
         this._events = this._events.filter((event) => {
@@ -916,31 +1010,29 @@ export class BaseProvider extends Provider {
                 return true;
             }
             found = true;
+            stopped.push(event);
             return false;
         });
-        if (eventName === "pending" && this.listenerCount("pending") === 0) {
-            this._stopPending();
-        }
-        // Do we still have any events that require polling?
-        this._checkPolling();
+        stopped.forEach((event) => { this._stopEvent(event); });
         return this;
     }
     removeAllListeners(eventName) {
+        let stopped = [];
         if (eventName == null) {
+            stopped = this._events;
             this._events = [];
-            this._stopPending();
         }
         else {
-            let eventTag = getEventTag(eventName);
+            const eventTag = getEventTag(eventName);
             this._events = this._events.filter((event) => {
-                return (event.tag !== eventTag);
+                if (event.tag !== eventTag) {
+                    return true;
+                }
+                stopped.push(event);
+                return false;
             });
-            if (eventName === "pending") {
-                this._stopPending();
-            }
         }
-        // Do we still have any events that require polling?
-        this._checkPolling();
+        stopped.forEach((event) => { this._stopEvent(event); });
         return this;
     }
 }

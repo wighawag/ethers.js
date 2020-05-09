@@ -9,13 +9,15 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 import { Provider } from "@ethersproject/abstract-provider";
-import { shuffled } from "@ethersproject/random";
-import { deepCopy, defineReadOnly, shallowCopy } from "@ethersproject/properties";
 import { BigNumber } from "@ethersproject/bignumber";
+import { isHexString } from "@ethersproject/bytes";
+import { deepCopy, defineReadOnly, shallowCopy } from "@ethersproject/properties";
+import { shuffled } from "@ethersproject/random";
+import { poll } from "@ethersproject/web";
+import { BaseProvider } from "./base-provider";
 import { Logger } from "@ethersproject/logger";
 import { version } from "./_version";
 const logger = new Logger(version);
-import { BaseProvider } from "./base-provider";
 function now() { return (new Date()).getTime(); }
 // Returns to network as long as all agree, or null if any is null.
 // Throws an error if any two networks do not match.
@@ -40,7 +42,7 @@ function checkNetworks(networks) {
     }
     return result;
 }
-function median(values) {
+function median(values, maxDelta) {
     values = values.slice().sort();
     const middle = Math.floor(values.length / 2);
     // Odd length; take the middle
@@ -49,6 +51,9 @@ function median(values) {
     }
     // Even length; take the average of the two middle
     const a = values[middle - 1], b = values[middle];
+    if (maxDelta != null && Math.abs(a - b) > maxDelta) {
+        return null;
+    }
     return (a + b) / 2;
 }
 function serialize(value) {
@@ -86,14 +91,27 @@ function serialize(value) {
 // Next request ID to use for emitting debug info
 let nextRid = 1;
 ;
-// Returns a promise that delays for duration
 function stall(duration) {
-    return new Promise((resolve) => {
-        const timer = setTimeout(resolve, duration);
-        if (timer.unref) {
-            timer.unref();
-        }
-    });
+    let cancel = null;
+    let timer = null;
+    let promise = (new Promise((resolve) => {
+        cancel = function () {
+            if (timer) {
+                clearTimeout(timer);
+                timer = null;
+            }
+            resolve();
+        };
+        timer = setTimeout(cancel, duration);
+    }));
+    const wait = (func) => {
+        promise = promise.then(func);
+        return promise;
+    };
+    function getPromise() {
+        return promise;
+    }
+    return { cancel, getPromise, wait };
 }
 ;
 function exposeDebugConfig(config, now) {
@@ -151,7 +169,11 @@ function getProcessFunc(provider, method, params) {
             return function (configs) {
                 const values = configs.map((c) => c.result);
                 // Get the median block number
-                let blockNumber = Math.ceil(median(configs.map((c) => c.result)));
+                let blockNumber = median(configs.map((c) => c.result), 2);
+                if (blockNumber == null) {
+                    return undefined;
+                }
+                blockNumber = Math.ceil(blockNumber);
                 // If the next block height is present, its prolly safe to use
                 if (values.indexOf(blockNumber + 1) >= 0) {
                     blockNumber++;
@@ -231,36 +253,82 @@ function getProcessFunc(provider, method, params) {
     // satisfied and agreed upon for the final result.
     return normalizedTally(normalize, provider.quorum);
 }
-function getRunner(provider, method, params) {
-    switch (method) {
-        case "getBlockNumber":
-        case "getGasPrice":
-            return provider[method]();
-        case "getEtherPrice":
-            if (provider.getEtherPrice) {
-                return provider.getEtherPrice();
+// If we are doing a blockTag query, we need to make sure the backend is
+// caught up to the FallbackProvider, before sending a request to it.
+function waitForSync(config, blockNumber) {
+    return __awaiter(this, void 0, void 0, function* () {
+        const provider = (config.provider);
+        if ((provider.blockNumber != null && provider.blockNumber >= blockNumber) || blockNumber === -1) {
+            return provider;
+        }
+        return poll(() => {
+            return new Promise((resolve, reject) => {
+                setTimeout(function () {
+                    // We are synced
+                    if (provider.blockNumber >= blockNumber) {
+                        return resolve(Provider);
+                    }
+                    // We're done; just quit
+                    if (config.cancelled) {
+                        return resolve(null);
+                    }
+                    // Try again, next block
+                    return resolve(undefined);
+                }, 0);
+            });
+        }, { oncePoll: provider });
+    });
+}
+function getRunner(config, currentBlockNumber, method, params) {
+    return __awaiter(this, void 0, void 0, function* () {
+        let provider = config.provider;
+        switch (method) {
+            case "getBlockNumber":
+            case "getGasPrice":
+                return provider[method]();
+            case "getEtherPrice":
+                if (provider.getEtherPrice) {
+                    return provider.getEtherPrice();
+                }
+                break;
+            case "getBalance":
+            case "getTransactionCount":
+            case "getCode":
+                if (params.blockTag && isHexString(params.blockTag)) {
+                    provider = yield waitForSync(config, currentBlockNumber);
+                }
+                return provider[method](params.address, params.blockTag || "latest");
+            case "getStorageAt":
+                if (params.blockTag && isHexString(params.blockTag)) {
+                    provider = yield waitForSync(config, currentBlockNumber);
+                }
+                return provider.getStorageAt(params.address, params.position, params.blockTag || "latest");
+            case "getBlock":
+                if (params.blockTag && isHexString(params.blockTag)) {
+                    provider = yield waitForSync(config, currentBlockNumber);
+                }
+                return provider[(params.includeTransactions ? "getBlockWithTransactions" : "getBlock")](params.blockTag || params.blockHash);
+            case "call":
+            case "estimateGas":
+                if (params.blockTag && isHexString(params.blockTag)) {
+                    provider = yield waitForSync(config, currentBlockNumber);
+                }
+                return provider[method](params.transaction);
+            case "getTransaction":
+            case "getTransactionReceipt":
+                return provider[method](params.transactionHash);
+            case "getLogs": {
+                let filter = params.filter;
+                if ((filter.fromBlock && isHexString(filter.fromBlock)) || (filter.toBlock && isHexString(filter.toBlock))) {
+                    provider = yield waitForSync(config, currentBlockNumber);
+                }
+                return provider.getLogs(filter);
             }
-            break;
-        case "getBalance":
-        case "getTransactionCount":
-        case "getCode":
-            return provider[method](params.address, params.blockTag || "latest");
-        case "getStorageAt":
-            return provider.getStorageAt(params.address, params.position, params.blockTag || "latest");
-        case "getBlock":
-            return provider[(params.includeTransactions ? "getBlockWithTransactions" : "getBlock")](params.blockTag || params.blockHash);
-        case "call":
-        case "estimateGas":
-            return provider[method](params.transaction);
-        case "getTransaction":
-        case "getTransactionReceipt":
-            return provider[method](params.transactionHash);
-        case "getLogs":
-            return provider.getLogs(params.filter);
-    }
-    return logger.throwError("unknown method error", Logger.errors.UNKNOWN_ERROR, {
-        method: method,
-        params: params
+        }
+        return logger.throwError("unknown method error", Logger.errors.UNKNOWN_ERROR, {
+            method: method,
+            params: params
+        });
     });
 }
 export class FallbackProvider extends BaseProvider {
@@ -302,49 +370,55 @@ export class FallbackProvider extends BaseProvider {
             super(network);
         }
         else {
-            // The network won't be known until all child providers know
-            const ready = Promise.all(providerConfigs.map((c) => c.provider.getNetwork())).then((networks) => {
-                return checkNetworks(networks);
-            });
-            super(ready);
+            super(this.detectNetwork());
         }
         // Preserve a copy, so we do not get mutated
         defineReadOnly(this, "providerConfigs", Object.freeze(providerConfigs));
         defineReadOnly(this, "quorum", quorum);
         this._highestBlockNumber = -1;
     }
+    detectNetwork() {
+        return __awaiter(this, void 0, void 0, function* () {
+            const networks = yield Promise.all(this.providerConfigs.map((c) => c.provider.getNetwork()));
+            return checkNetworks(networks);
+        });
+    }
     perform(method, params) {
         return __awaiter(this, void 0, void 0, function* () {
             // Sending transactions is special; always broadcast it to all backends
             if (method === "sendTransaction") {
-                return Promise.all(this.providerConfigs.map((c) => {
+                const results = yield Promise.all(this.providerConfigs.map((c) => {
                     return c.provider.sendTransaction(params.signedTransaction).then((result) => {
                         return result.hash;
                     }, (error) => {
                         return error;
                     });
-                })).then((results) => {
-                    // Any success is good enough (other errors are likely "already seen" errors
-                    for (let i = 0; i < results.length; i++) {
-                        const result = results[i];
-                        if (typeof (result) === "string") {
-                            return result;
-                        }
+                }));
+                // Any success is good enough (other errors are likely "already seen" errors
+                for (let i = 0; i < results.length; i++) {
+                    const result = results[i];
+                    if (typeof (result) === "string") {
+                        return result;
                     }
-                    // They were all an error; pick the first error
-                    return Promise.reject(results[0].error);
-                });
+                }
+                // They were all an error; pick the first error
+                throw results[0];
+            }
+            // We need to make sure we are in sync with our backends, so we need
+            // to know this before we can make a lot of calls
+            if (this._highestBlockNumber === -1 && method !== "getBlockNumber") {
+                yield this.getBlockNumber();
             }
             const processFunc = getProcessFunc(this, method, params);
             // Shuffle the providers and then sort them by their priority; we
             // shallowCopy them since we will store the result in them too
-            const configs = shuffled(this.providerConfigs.map((c) => shallowCopy(c)));
+            const configs = shuffled(this.providerConfigs.map(shallowCopy));
             configs.sort((a, b) => (a.priority - b.priority));
+            const currentBlockNumber = this._highestBlockNumber;
             let i = 0;
+            let first = true;
             while (true) {
                 const t0 = now();
-                // Get a list of running
-                //const running = configs.filter((c) => (c.runner && !c.done));
                 // Compute the inflight weight (exclude anything past)
                 let inflightWeight = configs.filter((c) => (c.runner && ((t0 - c.start) < c.stallTimeout)))
                     .reduce((accum, c) => (accum + c.weight), 0);
@@ -353,8 +427,9 @@ export class FallbackProvider extends BaseProvider {
                     const config = configs[i++];
                     const rid = nextRid++;
                     config.start = now();
-                    config.staller = stall(config.stallTimeout).then(() => { config.staller = null; });
-                    config.runner = getRunner(config.provider, method, params).then((result) => {
+                    config.staller = stall(config.stallTimeout);
+                    config.staller.wait(() => { config.staller = null; });
+                    config.runner = getRunner(config, currentBlockNumber, method, params).then((result) => {
                         config.done = true;
                         config.result = result;
                         if (this.listenerCount("debug")) {
@@ -379,7 +454,6 @@ export class FallbackProvider extends BaseProvider {
                             });
                         }
                     });
-                    //running.push(config);
                     if (this.listenerCount("debug")) {
                         this.emit("debug", {
                             action: "request",
@@ -399,7 +473,7 @@ export class FallbackProvider extends BaseProvider {
                     }
                     waiting.push(c.runner);
                     if (c.staller) {
-                        waiting.push(c.staller);
+                        waiting.push(c.staller.getPromise());
                     }
                 });
                 if (waiting.length) {
@@ -411,14 +485,32 @@ export class FallbackProvider extends BaseProvider {
                 if (results.length >= this.quorum) {
                     const result = processFunc(results);
                     if (result !== undefined) {
+                        // Shut down any stallers
+                        configs.forEach(c => {
+                            if (c.staller) {
+                                c.staller.cancel();
+                            }
+                            c.cancelled = true;
+                        });
                         return result;
                     }
+                    if (!first) {
+                        yield stall(100).getPromise();
+                    }
+                    first = false;
                 }
                 // All configs have run to completion; we will never get more data
                 if (configs.filter((c) => !c.done).length === 0) {
                     break;
                 }
             }
+            // Shut down any stallers; shouldn't be any
+            configs.forEach(c => {
+                if (c.staller) {
+                    c.staller.cancel();
+                }
+                c.cancelled = true;
+            });
             return logger.throwError("failed to meet quorum", Logger.errors.SERVER_ERROR, {
                 method: method,
                 params: params,

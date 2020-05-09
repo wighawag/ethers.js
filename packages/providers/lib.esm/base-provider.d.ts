@@ -1,3 +1,4 @@
+/// <reference types="node" />
 import { Block, BlockTag, BlockWithTransactions, EventType, Filter, FilterByBlockHash, Listener, Log, Provider, TransactionReceipt, TransactionRequest, TransactionResponse } from "@ethersproject/abstract-provider";
 import { BigNumber, BigNumberish } from "@ethersproject/bignumber";
 import { Network, Networkish } from "@ethersproject/networks";
@@ -6,20 +7,26 @@ import { Formatter } from "./formatter";
 /**
  *  EventType
  *   - "block"
+ *   - "poll"
  *   - "pending"
  *   - "error"
  *   - filter
  *   - topics array
  *   - transaction hash
  */
-declare class Event {
+export declare class Event {
     readonly listener: Listener;
     readonly once: boolean;
     readonly tag: string;
     constructor(tag: string, listener: Listener, once: boolean);
+    get event(): EventType;
+    get type(): string;
+    get hash(): string;
+    get filter(): Filter;
     pollable(): boolean;
 }
 export declare class BaseProvider extends Provider {
+    _networkPromise: Promise<Network>;
     _network: Network;
     _events: Array<Event>;
     formatter: Formatter;
@@ -27,7 +34,8 @@ export declare class BaseProvider extends Provider {
         [eventName: string]: number | "pending";
     };
     _pollingInterval: number;
-    _poller: any;
+    _poller: NodeJS.Timer;
+    _bootstrapPoll: NodeJS.Timer;
     _lastBlockNumber: number;
     _fastBlockNumber: number;
     _fastBlockNumberPromise: Promise<number>;
@@ -47,18 +55,22 @@ export declare class BaseProvider extends Provider {
      *  MUST set this. Standard named networks have a known chainId.
      *
      */
-    ready: Promise<Network>;
     constructor(network: Networkish | Promise<Network>);
+    _ready(): Promise<Network>;
+    get ready(): Promise<Network>;
+    detectNetwork(): Promise<Network>;
     static getFormatter(): Formatter;
     static getNetwork(network: Networkish): Network;
     _getInternalBlockNumber(maxAge: number): Promise<number>;
     poll(): Promise<void>;
     resetEventsBlock(blockNumber: number): void;
-    readonly network: Network;
+    get network(): Network;
     getNetwork(): Promise<Network>;
-    readonly blockNumber: number;
-    polling: boolean;
-    pollingInterval: number;
+    get blockNumber(): number;
+    get polling(): boolean;
+    set polling(value: boolean);
+    get pollingInterval(): number;
+    set pollingInterval(value: number);
     _getFastBlockNumber(): Promise<number>;
     _setFastBlockNumber(blockNumber: number): void;
     waitForTransaction(transactionHash: string, confirmations?: number, timeout?: number): Promise<TransactionReceipt>;
@@ -87,9 +99,8 @@ export declare class BaseProvider extends Provider {
     resolveName(name: string | Promise<string>): Promise<string>;
     lookupAddress(address: string | Promise<string>): Promise<string>;
     perform(method: string, params: any): Promise<any>;
-    _startPending(): void;
-    _stopPending(): void;
-    _checkPolling(): void;
+    _startEvent(event: Event): void;
+    _stopEvent(event: Event): void;
     _addEventListener(eventName: EventType, listener: Listener, once: boolean): this;
     on(eventName: EventType, listener: Listener): this;
     once(eventName: EventType, listener: Listener): this;
@@ -99,4 +110,3 @@ export declare class BaseProvider extends Provider {
     off(eventName: EventType, listener?: Listener): this;
     removeAllListeners(eventName?: EventType): this;
 }
-export {};

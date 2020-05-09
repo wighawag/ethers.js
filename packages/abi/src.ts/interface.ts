@@ -8,14 +8,14 @@ import { keccak256 } from "@ethersproject/keccak256"
 import { defineReadOnly, Description, getStatic } from "@ethersproject/properties";
 
 import { AbiCoder, defaultAbiCoder } from "./abi-coder";
-import { Result } from "./coders/abstract-coder";
+import { checkResultErrors, Result } from "./coders/abstract-coder";
 import { ConstructorFragment, EventFragment, FormatTypes, Fragment, FunctionFragment, JsonFragment, ParamType } from "./fragments";
 
 import { Logger } from "@ethersproject/logger";
 import { version } from "./_version";
 const logger = new Logger(version);
 
-export { Result };
+export { checkResultErrors, Result };
 
 export class LogDescription extends Description<LogDescription> {
     readonly eventFragment: EventFragment;
@@ -41,6 +41,24 @@ export class Indexed extends Description<Indexed> {
     static isIndexed(value: any): value is Indexed {
         return !!(value && value._isIndexed);
     }
+}
+
+function wrapAccessError(property: string, error: Error): Error {
+    const wrap = new Error(`deferred error during ABI decoding triggered accessing ${ property }`);
+    (<any>wrap).error = error;
+    return wrap;
+}
+
+function checkNames(fragment: Fragment, type: "input" | "output", params: Array<ParamType>): void {
+    params.reduce((accum, param) => {
+        if (param.name) {
+            if (accum[param.name]) {
+                logger.throwArgumentError(`duplicate ${ type } parameter ${ JSON.stringify(param.name) } in ${ fragment.format("full") }`, "fragment", fragment);
+            }
+            accum[param.name] = true;
+        }
+        return accum;
+    }, <{ [ name: string ]: boolean }>{ });
 }
 
 export class Interface {
@@ -87,12 +105,16 @@ export class Interface {
                         logger.warn("duplicate definition - constructor");
                         return;
                     }
+                    checkNames(fragment, "input", fragment.inputs);
                     defineReadOnly(this, "deploy", <ConstructorFragment>fragment);
                     return;
                 case "function":
+                    checkNames(fragment, "input", fragment.inputs);
+                    checkNames(fragment, "output", (<FunctionFragment>fragment).outputs);
                     bucket = this.functions;
                     break;
                 case "event":
+                    checkNames(fragment, "input", fragment.inputs);
                     bucket = this.events;
                     break;
                 default:
@@ -108,9 +130,12 @@ export class Interface {
             bucket[signature] = fragment;
         });
 
-        // If we do not have a constructor use the default "constructor() payable"
+        // If we do not have a constructor add a default
         if (!this.deploy) {
-            defineReadOnly(this, "deploy", ConstructorFragment.from({ type: "constructor" }));
+            defineReadOnly(this, "deploy", ConstructorFragment.from({
+                payable: false,
+                type: "constructor"
+            }));
         }
 
         defineReadOnly(this, "_isInterface", true);
@@ -119,7 +144,7 @@ export class Interface {
     format(format?: string): string | Array<string> {
         if (!format) { format = FormatTypes.full; }
         if (format === FormatTypes.sighash) {
-            logger.throwArgumentError("interface does not support formating sighash", "format", format);
+            logger.throwArgumentError("interface does not support formatting sighash", "format", format);
         }
 
         const abi = this.fragments.map((fragment) => fragment.format(format));
@@ -145,7 +170,7 @@ export class Interface {
         return hexDataSlice(id(functionFragment.format()), 0, 4);
     }
 
-    static getTopic(eventFragment: EventFragment): string {
+    static getEventTopic(eventFragment: EventFragment): string {
         return id(eventFragment.format());
     }
 
@@ -229,7 +254,7 @@ export class Interface {
             eventFragment = this.getEvent(eventFragment);
         }
 
-        return getStatic<(e: EventFragment) => string>(this.constructor, "getTopic")(eventFragment);
+        return getStatic<(e: EventFragment) => string>(this.constructor, "getEventTopic")(eventFragment);
     }
 
 
@@ -327,8 +352,20 @@ export class Interface {
             })
         }
 
-        let topics: Array<string> = [];
+        let topics: Array<string | Array<string>> = [];
         if (!eventFragment.anonymous) { topics.push(this.getEventTopic(eventFragment)); }
+
+        const encodeTopic = (param: ParamType, value: any): string => {
+            if (param.type === "string") {
+                 return id(value);
+            } else if (param.type === "bytes") {
+                 return keccak256(hexlify(value));
+            }
+
+            // Check addresses are valid
+            if (param.type === "address") { this._abiCoder.encode( [ "address" ], [ value ]); }
+            return hexZeroPad(hexlify(value), 32);
+        };
 
         values.forEach((value, index) => {
 
@@ -343,16 +380,12 @@ export class Interface {
 
             if (value == null) {
                 topics.push(null);
-            } else if (param.type === "string") {
-                 topics.push(id(value));
-            } else if (param.type === "bytes") {
-                 topics.push(keccak256(hexlify(value)));
-            } else if (param.type.indexOf("[") !== -1 || param.type.substring(0, 5) === "tuple") {
+            } else if (param.baseType === "array" || param.baseType === "tuple") {
                 logger.throwArgumentError("filtering with tuples or arrays not supported", ("contract." + param.name), value);
+            } else if (Array.isArray(value)) {
+                topics.push(value.map((value) => encodeTopic(param, value)));
             } else {
-                // Check addresses are valid
-                if (param.type === "address") { this._abiCoder.encode( [ "address" ], [ value ]); }
-                topics.push(hexZeroPad(hexlify(value), 32));
+                topics.push(encodeTopic(param, value));
             }
         });
 
@@ -362,6 +395,49 @@ export class Interface {
         }
 
         return topics;
+    }
+
+    encodeEventLog(eventFragment: EventFragment, values: Array<any>): { data: string, topics: Array<string> } {
+        if (typeof(eventFragment) === "string") {
+            eventFragment = this.getEvent(eventFragment);
+        }
+
+        const topics: Array<string> = [ ];
+
+        const dataTypes: Array<ParamType> = [ ];
+        const dataValues: Array<string> = [ ];
+
+        if (!eventFragment.anonymous) {
+            topics.push(this.getEventTopic(eventFragment));
+        }
+
+        if (values.length !== eventFragment.inputs.length) {
+            logger.throwArgumentError("event arguments/values mismatch", "values", values);
+        }
+
+        eventFragment.inputs.forEach((param, index) => {
+            const value = values[index];
+            if (param.indexed) {
+                if (param.type === "string") {
+                    topics.push(id(value))
+                } else if (param.type === "bytes") {
+                    topics.push(keccak256(value))
+                } else if (param.baseType === "tuple" || param.baseType === "array") {
+                    // @TOOD
+                    throw new Error("not implemented");
+                } else {
+                    topics.push(this._abiCoder.encode([ param.type] , [ value ]));
+                }
+            } else {
+                dataTypes.push(param);
+                dataValues.push(value);
+            }
+        });
+
+        return {
+            data: this._abiCoder.encode(dataTypes , dataValues),
+            topics: topics
+        };
     }
 
     // Decode a filter for the event and the search criteria
@@ -400,7 +476,7 @@ export class Interface {
         let resultIndexed = (topics != null) ? this._abiCoder.decode(indexed, concat(topics)): null;
         let resultNonIndexed = this._abiCoder.decode(nonIndexed, data);
 
-        let result: Result = [ ];
+        let result: (Array<any> & { [ key: string ]: any }) = [ ];
         let nonIndexedIndex = 0, indexedIndex = 0;
         eventFragment.inputs.forEach((param, index) => {
             if (param.indexed) {
@@ -411,15 +487,46 @@ export class Interface {
                     result[index] = new Indexed({ _isIndexed: true, hash: resultIndexed[indexedIndex++] });
 
                 } else {
-                    result[index] = resultIndexed[indexedIndex++];
+                    try {
+                        result[index] = resultIndexed[indexedIndex++];
+                    } catch (error) {
+                        result[index] = error;
+                    }
                 }
             } else {
-                result[index] = resultNonIndexed[nonIndexedIndex++];
+                try {
+                    result[index] = resultNonIndexed[nonIndexedIndex++];
+                } catch (error) {
+                    result[index] = error;
+                }
             }
-            if (param.name && result[param.name] == null) { result[param.name] = result[index]; }
+
+            // Add the keyword argument if named and safe
+            if (param.name && result[param.name] == null) {
+                const value = result[index];
+
+                // Make error named values throw on access
+                if (value instanceof Error) {
+                    Object.defineProperty(result, param.name, {
+                        get: () => { throw wrapAccessError(`property ${ JSON.stringify(param.name) }`, value); }
+                    });
+                } else {
+                    result[param.name] = value;
+                }
+            }
         });
 
-        return result;
+        // Make all error indexed values throw on access
+        for (let i = 0; i < result.length; i++) {
+            const value = result[i];
+            if (value instanceof Error) {
+                Object.defineProperty(result, i, {
+                    get: () => { throw wrapAccessError(`index ${ i }`, value); }
+                });
+            }
+        }
+
+        return Object.freeze(result);
     }
 
     // Given a transaction, find the matching function fragment (if any) and

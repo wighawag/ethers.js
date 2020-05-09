@@ -12,6 +12,42 @@ var __extends = (this && this.__extends) || (function () {
         d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
     };
 })();
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
+var __generator = (this && this.__generator) || function (thisArg, body) {
+    var _ = { label: 0, sent: function() { if (t[0] & 1) throw t[1]; return t[1]; }, trys: [], ops: [] }, f, y, t, g;
+    return g = { next: verb(0), "throw": verb(1), "return": verb(2) }, typeof Symbol === "function" && (g[Symbol.iterator] = function() { return this; }), g;
+    function verb(n) { return function (v) { return step([n, v]); }; }
+    function step(op) {
+        if (f) throw new TypeError("Generator is already executing.");
+        while (_) try {
+            if (f = 1, y && (t = op[0] & 2 ? y["return"] : op[0] ? y["throw"] || ((t = y["return"]) && t.call(y), 0) : y.next) && !(t = t.call(y, op[1])).done) return t;
+            if (y = 0, t) op = [op[0] & 2, t.value];
+            switch (op[0]) {
+                case 0: case 1: t = op; break;
+                case 4: _.label++; return { value: op[1], done: false };
+                case 5: _.label++; y = op[1]; op = [0]; continue;
+                case 7: op = _.ops.pop(); _.trys.pop(); continue;
+                default:
+                    if (!(t = _.trys, t = t.length > 0 && t[t.length - 1]) && (op[0] === 6 || op[0] === 2)) { _ = 0; continue; }
+                    if (op[0] === 3 && (!t || (op[1] > t[0] && op[1] < t[3]))) { _.label = op[1]; break; }
+                    if (op[0] === 6 && _.label < t[1]) { _.label = t[1]; t = op; break; }
+                    if (t && _.label < t[2]) { _.label = t[2]; _.ops.push(op); break; }
+                    if (t[2]) _.ops.pop();
+                    _.trys.pop(); continue;
+            }
+            op = body.call(thisArg, _);
+        } catch (e) { op = [6, e]; y = 0; } finally { f = t = 0; }
+        if (op[0] & 5) throw op[1]; return { value: op[0] ? op[1] : void 0, done: true };
+    }
+};
 var __spreadArrays = (this && this.__spreadArrays) || function () {
     for (var s = 0, i = 0, il = arguments.length; i < il; i++) s += arguments[i].length;
     for (var r = Array(s), k = 0, i = 0; i < il; i++)
@@ -85,7 +121,7 @@ function runMethod(contract, functionName, options) {
             // Check for unexpected keys (e.g. using "gas" instead of "gasLimit")
             for (var key in tx) {
                 if (!allowedTransactionKeys[key]) {
-                    logger.throwError(("unknown transaxction override - " + key), "overrides", tx);
+                    logger.throwArgumentError(("unknown transaction override - " + key), "overrides", tx);
                 }
             }
         }
@@ -99,11 +135,11 @@ function runMethod(contract, functionName, options) {
         // If the contract was just deployed, wait until it is minded
         if (contract.deployTransaction != null) {
             tx.to = contract._deployed(blockTag).then(function () {
-                return contract.addressPromise;
+                return contract.resolvedAddress;
             });
         }
         else {
-            tx.to = contract.addressPromise;
+            tx.to = contract.resolvedAddress;
         }
         return resolveAddresses(contract.signer || contract.provider, params, method.inputs).then(function (params) {
             tx.data = contract.interface.encodeFunctionData(method, params);
@@ -167,7 +203,11 @@ function runMethod(contract, functionName, options) {
                     return wait(confirmations).then(function (receipt) {
                         receipt.events = receipt.logs.map(function (log) {
                             var event = properties_1.deepCopy(log);
-                            var parsed = contract.interface.parseLog(log);
+                            var parsed = null;
+                            try {
+                                parsed = contract.interface.parseLog(log);
+                            }
+                            catch (e) { }
                             if (parsed) {
                                 event.args = parsed.args;
                                 event.decode = function (data, topics) {
@@ -246,6 +286,10 @@ var RunningEvent = /** @class */ (function () {
     };
     RunningEvent.prototype.prepareEvent = function (event) {
     };
+    // Returns the array that will be applied to an emit
+    RunningEvent.prototype.getEmit = function (event) {
+        return [event];
+    };
     return RunningEvent;
 }());
 var ErrorRunningEvent = /** @class */ (function (_super) {
@@ -255,6 +299,11 @@ var ErrorRunningEvent = /** @class */ (function (_super) {
     }
     return ErrorRunningEvent;
 }(RunningEvent));
+// @TODO Fragment should inherit Wildcard? and just override getEmit?
+//       or have a common abstract super class, with enough constructor
+//       options to configure both.
+// A Fragment Event will populate all the properties that Wildcard
+// will, and additioanlly dereference the arguments when emitting
 var FragmentRunningEvent = /** @class */ (function (_super) {
     __extends(FragmentRunningEvent, _super);
     function FragmentRunningEvent(address, contractInterface, fragment, topics) {
@@ -286,10 +335,30 @@ var FragmentRunningEvent = /** @class */ (function (_super) {
         event.decode = function (data, topics) {
             return _this.interface.decodeEventLog(_this.fragment, data, topics);
         };
-        event.args = this.interface.decodeEventLog(this.fragment, event.data, event.topics);
+        try {
+            event.args = this.interface.decodeEventLog(this.fragment, event.data, event.topics);
+        }
+        catch (error) {
+            event.args = null;
+            event.decodeError = error;
+        }
+    };
+    FragmentRunningEvent.prototype.getEmit = function (event) {
+        var errors = abi_1.checkResultErrors(event.args);
+        if (errors.length) {
+            throw errors[0].error;
+        }
+        var args = (event.args || []).slice();
+        args.push(event);
+        return args;
     };
     return FragmentRunningEvent;
 }(RunningEvent));
+// A Wildard Event will attempt to populate:
+//  - event            The name of the event name
+//  - eventSignature   The full signature of the event
+//  - decode           A function to decode data and topics
+//  - args             The decoded data and topics
 var WildcardRunningEvent = /** @class */ (function (_super) {
     __extends(WildcardRunningEvent, _super);
     function WildcardRunningEvent(address, contractInterface) {
@@ -301,14 +370,17 @@ var WildcardRunningEvent = /** @class */ (function (_super) {
     WildcardRunningEvent.prototype.prepareEvent = function (event) {
         var _this = this;
         _super.prototype.prepareEvent.call(this, event);
-        var parsed = this.interface.parseLog(event);
-        if (parsed) {
-            event.event = parsed.name;
-            event.eventSignature = parsed.signature;
+        try {
+            var parsed_1 = this.interface.parseLog(event);
+            event.event = parsed_1.name;
+            event.eventSignature = parsed_1.signature;
             event.decode = function (data, topics) {
-                return _this.interface.decodeEventLog(parsed.eventFragment, data, topics);
+                return _this.interface.decodeEventLog(parsed_1.eventFragment, data, topics);
             };
-            event.args = parsed.args;
+            event.args = parsed_1.args;
+        }
+        catch (error) {
+            // No matching event
         }
     };
     return WildcardRunningEvent;
@@ -333,7 +405,7 @@ var Contract = /** @class */ (function () {
             logger.throwArgumentError("invalid signer or provider", "signerOrProvider", signerOrProvider);
         }
         properties_1.defineReadOnly(this, "callStatic", {});
-        properties_1.defineReadOnly(this, "estimate", {});
+        properties_1.defineReadOnly(this, "estimateGas", {});
         properties_1.defineReadOnly(this, "functions", {});
         properties_1.defineReadOnly(this, "populateTransaction", {});
         properties_1.defineReadOnly(this, "filters", {});
@@ -370,7 +442,7 @@ var Contract = /** @class */ (function () {
         properties_1.defineReadOnly(this, "_wrappedEmits", {});
         properties_1.defineReadOnly(this, "address", addressOrName);
         if (this.provider) {
-            properties_1.defineReadOnly(this, "addressPromise", this.provider.resolveName(addressOrName).then(function (address) {
+            properties_1.defineReadOnly(this, "resolvedAddress", this.provider.resolveName(addressOrName).then(function (address) {
                 if (address == null) {
                     throw new Error("name not found");
                 }
@@ -382,51 +454,73 @@ var Contract = /** @class */ (function () {
         }
         else {
             try {
-                properties_1.defineReadOnly(this, "addressPromise", Promise.resolve((this.interface.constructor).getAddress(addressOrName)));
+                properties_1.defineReadOnly(this, "resolvedAddress", Promise.resolve((this.interface.constructor).getAddress(addressOrName)));
             }
             catch (error) {
                 // Without a provider, we cannot use ENS names
                 logger.throwArgumentError("provider is required to use non-address contract address", "addressOrName", addressOrName);
             }
         }
-        var uniqueFunctions = {};
-        Object.keys(this.interface.functions).forEach(function (name) {
-            var fragment = _this.interface.functions[name];
-            // @TODO: This should take in fragment
-            var run = runMethod(_this, name, {});
-            if (_this[name] == null) {
-                properties_1.defineReadOnly(_this, name, run);
-            }
-            if (_this.functions[name] == null) {
-                properties_1.defineReadOnly(_this.functions, name, run);
-            }
-            if (_this.callStatic[name] == null) {
-                properties_1.defineReadOnly(_this.callStatic, name, runMethod(_this, name, { callStatic: true }));
-            }
-            if (_this.populateTransaction[name] == null) {
-                properties_1.defineReadOnly(_this.populateTransaction, name, runMethod(_this, name, { transaction: true }));
-            }
-            if (_this.estimate[name] == null) {
-                properties_1.defineReadOnly(_this.estimate, name, runMethod(_this, name, { estimate: true }));
-            }
-            if (!uniqueFunctions[fragment.name]) {
-                uniqueFunctions[fragment.name] = [];
-            }
-            uniqueFunctions[fragment.name].push(name);
-        });
-        Object.keys(uniqueFunctions).forEach(function (name) {
-            var signatures = uniqueFunctions[name];
-            if (signatures.length > 1) {
-                logger.warn("Duplicate definition of " + name + " (" + signatures.join(", ") + ")");
+        var uniqueNames = {};
+        var uniqueSignatures = {};
+        Object.keys(this.interface.functions).forEach(function (signature) {
+            var fragment = _this.interface.functions[signature];
+            // Check that the signature is unique; if not the ABI generation has
+            // not been cleaned or may be incorrectly generated
+            if (uniqueSignatures[signature]) {
+                logger.warn("Duplicate ABI entry for " + JSON.stringify(name));
                 return;
             }
-            if (_this[name] == null) {
-                properties_1.defineReadOnly(_this, name, _this[signatures[0]]);
+            uniqueSignatures[signature] = true;
+            // Track unique names; we only expose bare named functions if they
+            // are ambiguous
+            {
+                var name_1 = fragment.name;
+                if (!uniqueNames[name_1]) {
+                    uniqueNames[name_1] = [];
+                }
+                uniqueNames[name_1].push(signature);
             }
-            properties_1.defineReadOnly(_this.functions, name, _this.functions[signatures[0]]);
-            properties_1.defineReadOnly(_this.callStatic, name, _this.callStatic[signatures[0]]);
-            properties_1.defineReadOnly(_this.populateTransaction, name, _this.populateTransaction[signatures[0]]);
-            properties_1.defineReadOnly(_this.estimate, name, _this.estimate[signatures[0]]);
+            // @TODO: This should take in fragment
+            var run = runMethod(_this, signature, {});
+            if (_this[signature] == null) {
+                properties_1.defineReadOnly(_this, signature, run);
+            }
+            if (_this.functions[signature] == null) {
+                properties_1.defineReadOnly(_this.functions, signature, run);
+            }
+            if (_this.callStatic[signature] == null) {
+                properties_1.defineReadOnly(_this.callStatic, signature, runMethod(_this, signature, { callStatic: true }));
+            }
+            if (_this.populateTransaction[signature] == null) {
+                properties_1.defineReadOnly(_this.populateTransaction, signature, runMethod(_this, signature, { transaction: true }));
+            }
+            if (_this.estimateGas[signature] == null) {
+                properties_1.defineReadOnly(_this.estimateGas, signature, runMethod(_this, signature, { estimate: true }));
+            }
+        });
+        Object.keys(uniqueNames).forEach(function (name) {
+            // Ambiguous names to not get attached as bare names
+            var signatures = uniqueNames[name];
+            if (signatures.length > 1) {
+                return;
+            }
+            var signature = signatures[0];
+            if (_this[name] == null) {
+                properties_1.defineReadOnly(_this, name, _this[signature]);
+            }
+            if (_this.functions[name] == null) {
+                properties_1.defineReadOnly(_this.functions, name, _this.functions[signature]);
+            }
+            if (_this.callStatic[name] == null) {
+                properties_1.defineReadOnly(_this.callStatic, name, _this.callStatic[signature]);
+            }
+            if (_this.populateTransaction[name] == null) {
+                properties_1.defineReadOnly(_this.populateTransaction, name, _this.populateTransaction[signature]);
+            }
+            if (_this.estimateGas[name] == null) {
+                properties_1.defineReadOnly(_this.estimateGas, name, _this.estimateGas[signature]);
+            }
         });
     }
     Contract.getContractAddress = function (transaction) {
@@ -484,7 +578,7 @@ var Contract = /** @class */ (function () {
             }
             logger.throwError("cannot override " + key, logger_1.Logger.errors.UNSUPPORTED_OPERATION, { operation: key });
         });
-        tx.to = this.addressPromise;
+        tx.to = this.resolvedAddress;
         return this.deployed().then(function () {
             return _this.signer.sendTransaction(tx);
         });
@@ -521,53 +615,51 @@ var Contract = /** @class */ (function () {
             if (eventName === "error") {
                 return this._normalizeRunningEvent(new ErrorRunningEvent());
             }
+            // Listen for any event that is registered
+            if (eventName === "event") {
+                return this._normalizeRunningEvent(new RunningEvent("event", null));
+            }
             // Listen for any event
             if (eventName === "*") {
                 return this._normalizeRunningEvent(new WildcardRunningEvent(this.address, this.interface));
             }
+            // Get the event Fragment (throws if ambiguous/unknown event)
             var fragment = this.interface.getEvent(eventName);
-            if (!fragment) {
-                logger.throwArgumentError("unknown event - " + eventName, "eventName", eventName);
-            }
             return this._normalizeRunningEvent(new FragmentRunningEvent(this.address, this.interface, fragment));
         }
-        var filter = {
-            address: this.address
-        };
-        // Find the matching event in the ABI; if none, we still allow filtering
-        // since it may be a filter for an otherwise unknown event
-        if (eventName.topics) {
-            if (eventName.topics[0]) {
+        // We have topics to filter by...
+        if (eventName.topics && eventName.topics.length > 0) {
+            // Is it a known topichash? (throws if no matching topichash)
+            try {
                 var fragment = this.interface.getEvent(eventName.topics[0]);
-                if (fragment) {
-                    return this._normalizeRunningEvent(new FragmentRunningEvent(this.address, this.interface, fragment, eventName.topics));
-                }
+                return this._normalizeRunningEvent(new FragmentRunningEvent(this.address, this.interface, fragment, eventName.topics));
             }
-            filter.topics = eventName.topics;
+            catch (error) { }
+            // Filter by the unknown topichash
+            var filter = {
+                address: this.address,
+                topics: eventName.topics
+            };
+            return this._normalizeRunningEvent(new RunningEvent(getEventTag(filter), filter));
         }
-        return this._normalizeRunningEvent(new RunningEvent(getEventTag(filter), filter));
+        return this._normalizeRunningEvent(new WildcardRunningEvent(this.address, this.interface));
     };
     Contract.prototype._checkRunningEvents = function (runningEvent) {
         if (runningEvent.listenerCount() === 0) {
             delete this._runningEvents[runningEvent.tag];
-        }
-        // If we have a poller for this, remove it
-        var emit = this._wrappedEmits[runningEvent.tag];
-        if (emit) {
-            this.provider.off(runningEvent.filter, emit);
-            delete this._wrappedEmits[runningEvent.tag];
+            // If we have a poller for this, remove it
+            var emit = this._wrappedEmits[runningEvent.tag];
+            if (emit) {
+                this.provider.off(runningEvent.filter, emit);
+                delete this._wrappedEmits[runningEvent.tag];
+            }
         }
     };
+    // Subclasses can override this to gracefully recover
+    // from parse errors if they wish
     Contract.prototype._wrapEvent = function (runningEvent, log, listener) {
         var _this = this;
         var event = properties_1.deepCopy(log);
-        try {
-            runningEvent.prepareEvent(event);
-        }
-        catch (error) {
-            this.emit("error", error);
-            throw error;
-        }
         event.removeListener = function () {
             if (!listener) {
                 return;
@@ -578,6 +670,8 @@ var Contract = /** @class */ (function () {
         event.getBlock = function () { return _this.provider.getBlock(log.blockHash); };
         event.getTransaction = function () { return _this.provider.getTransaction(log.transactionHash); };
         event.getTransactionReceipt = function () { return _this.provider.getTransactionReceipt(log.transactionHash); };
+        // This may throw if the topics and data mismatch the signature
+        runningEvent.prepareEvent(event);
         return event;
     };
     Contract.prototype._addEventListener = function (runningEvent, listener, once) {
@@ -588,13 +682,28 @@ var Contract = /** @class */ (function () {
         runningEvent.addListener(listener, once);
         // Track this running event and its listeners (may already be there; but no hard in updating)
         this._runningEvents[runningEvent.tag] = runningEvent;
-        // If we are not polling the provider, start
+        // If we are not polling the provider, start polling
         if (!this._wrappedEmits[runningEvent.tag]) {
             var wrappedEmit = function (log) {
                 var event = _this._wrapEvent(runningEvent, log, listener);
-                var args = (event.args || []);
-                args.push(event);
-                _this.emit.apply(_this, __spreadArrays([runningEvent.filter], args));
+                // Try to emit the result for the parameterized event...
+                if (event.decodeError == null) {
+                    try {
+                        var args = runningEvent.getEmit(event);
+                        _this.emit.apply(_this, __spreadArrays([runningEvent.filter], args));
+                    }
+                    catch (error) {
+                        event.decodeError = error.error;
+                    }
+                }
+                // Always emit "event" for fragment-base events
+                if (runningEvent.filter != null) {
+                    _this.emit("event", event);
+                }
+                // Emit "error" if there was an error
+                if (event.decodeError != null) {
+                    _this.emit("error", event.decodeError, event);
+                }
             };
             this._wrappedEmits[runningEvent.tag] = wrappedEmit;
             // Special events, like "error" do not have a filter
@@ -738,7 +847,7 @@ var ContractFactory = /** @class */ (function () {
         }
         var tx = {};
         // If we have 1 additional argument, we allow transaction overrides
-        if (args.length === this.interface.deploy.inputs.length + 1) {
+        if (args.length === this.interface.deploy.inputs.length + 1 && typeof (args[args.length - 1]) === "object") {
             tx = properties_1.shallowCopy(args.pop());
             for (var key in tx) {
                 if (!allowedTransactionKeys[key]) {
@@ -763,20 +872,35 @@ var ContractFactory = /** @class */ (function () {
         return tx;
     };
     ContractFactory.prototype.deploy = function () {
-        var _this = this;
         var args = [];
         for (var _i = 0; _i < arguments.length; _i++) {
             args[_i] = arguments[_i];
         }
-        return resolveAddresses(this.signer, args, this.interface.deploy.inputs).then(function (args) {
-            // Get the deployment transaction (with optional overrides)
-            var tx = _this.getDeployTransaction.apply(_this, args);
-            // Send the deployment transaction
-            return _this.signer.sendTransaction(tx).then(function (tx) {
-                var address = (_this.constructor).getContractAddress(tx);
-                var contract = (_this.constructor).getContract(address, _this.interface, _this.signer);
-                properties_1.defineReadOnly(contract, "deployTransaction", tx);
-                return contract;
+        return __awaiter(this, void 0, void 0, function () {
+            var overrides, params, unsignedTx, tx, address, contract;
+            return __generator(this, function (_a) {
+                switch (_a.label) {
+                    case 0:
+                        overrides = {};
+                        // If 1 extra parameter was passed in, it contains overrides
+                        if (args.length === this.interface.deploy.inputs.length + 1) {
+                            overrides = args.pop();
+                        }
+                        // Make sure the call matches the constructor signature
+                        logger.checkArgumentCount(args.length, this.interface.deploy.inputs.length, " in Contract constructor");
+                        return [4 /*yield*/, resolveAddresses(this.signer, args, this.interface.deploy.inputs)];
+                    case 1:
+                        params = _a.sent();
+                        params.push(overrides);
+                        unsignedTx = this.getDeployTransaction.apply(this, params);
+                        return [4 /*yield*/, this.signer.sendTransaction(unsignedTx)];
+                    case 2:
+                        tx = _a.sent();
+                        address = properties_1.getStatic(this.constructor, "getContractAddress")(tx);
+                        contract = properties_1.getStatic(this.constructor, "getContract")(address, this.interface, this.signer);
+                        properties_1.defineReadOnly(contract, "deployTransaction", tx);
+                        return [2 /*return*/, contract];
+                }
             });
         });
     };

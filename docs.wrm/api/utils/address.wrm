@@ -1,5 +1,3 @@
-_title: Addresses
-
 _section: Addresses @<addresses>
 
 Explain addresses,formats and checksumming here.
@@ -11,7 +9,7 @@ _subsection: Address Formats  @<address-formats>
 
 _heading: Address  @<address>
 
-An **Address** is a [[datahexstring]] of 20 bytes (40 nibbles), with optional
+An **Address** is a [[DataHexString]] of 20 bytes (40 nibbles), with optional
 mixed case.
 
 If the case is mixed, it is a **Checksum Address**, which uses a specific pattern
@@ -41,28 +39,45 @@ accepts an address can receive an ICAP address, and it will be converted interna
 To convert an address into the ICAP format, see [getIcapAddress](utils-getIcapAddress).
 
 
-_subsection: Functions
+_subsection: Converting and Verifying @<utils--address>
 
-_property: utils.getAddress(address) => string<[[address]]>  @<utils-getAddress> @SRC<address>
+_property: ethers.utils.getAddress(address) => string<[[address]]>  @<utils-getAddress> @SRC<address>
 Returns //address// as a Checksum Address.
 
-If //address// is an invalid 40-nibble [[hexstring]] or if it contains mixed case and
+If //address// is an invalid 40-nibble [[HexString]] or if it contains mixed case and
 the checksum is invalid, an InvalidArgument Error is throw.
 
 The value of //address// may be any supported address format.
 
-
-_property: utils.isAddress(address) => boolean  @<utils-isAddress> @SRC<address>
-Returns true if //address// is valid (in any supported format).
-
-_property: utils.getIcapAddress(address) => string<[IcapAddress](address-icap)>  @<utils-getIcapAddress> @SRC<address>
+_property: ethers.utils.getIcapAddress(address) => string<[IcapAddress](address-icap)>  @<utils-getIcapAddress> @SRC<address>
 Returns //address// as an [ICAP address](link-icap).
 Supports the same restrictions as [utils.getAddress](utils-getAddress).
 
-_property: utils.getContractAddress(transaction) => string<[[address]]>  @<utils-getcontractaddress> @SRC<address>
+_property: ethers.utils.isAddress(address) => boolean  @<utils-isAddress> @SRC<address>
+Returns true if //address// is valid (in any supported format).
+
+
+_subsection: Derivation @<utils--address-derivation>
+
+_property: ethers.utils.computeAddress(publicOrPrivateKey) => string<[[address]]>  @<utils-computeAddress> @SRC<transactions>
+Returns the address for //publicOrPrivateKey//. A public key may be
+compressed or uncompressed, and a private key will be converted
+automatically to a public key for the derivation.
+
+_property: ethers.utils.recoverAddress(digest, signature) => string<[[address]]>  @<utils-recoverAddress> @SRC<transactions>
+Use [[link-wiki-ecrecover]] to determine the address that signed //digest// to
+which generated //signature//.
+
+
+_subsection: Contracts Addresses @<utils--contract-addresses>
+
+_property: ethers.utils.getContractAddress(transaction) => string<[[address]]>  @<utils-getContractAddress> @SRC<address>
 Returns the contract address that would result if //transaction// was
 used to deploy a contract.
 
-_property: utils.getCreate2Address(from, salt, initCodeHash) => string<[[address]]> @<utils.getCreate2Address> @SRC<address>
+_property: ethers.utils.getCreate2Address(from, salt, initCodeHash) => string<[[address]]> @<utils-getCreate2Address> @SRC<address>
 Returns the contract address that would result from the given
 [CREATE2](link-eip-1014) call.
+
+
+

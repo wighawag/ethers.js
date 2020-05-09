@@ -3464,7 +3464,7 @@
 	var _version = createCommonjsModule(function (module, exports) {
 	"use strict";
 	Object.defineProperty(exports, "__esModule", { value: true });
-	exports.version = "logger/5.0.0-beta.135";
+	exports.version = "logger/5.0.0-beta.137";
 	});
 
 	var _version$1 = unwrapExports(_version);
@@ -3475,8 +3475,8 @@
 	Object.defineProperty(exports, "__esModule", { value: true });
 	var _permanentCensorErrors = false;
 	var _censorErrors = false;
-	var LogLevels = { debug: 1, "default": 2, info: 2, warn: 3, error: 4, off: 5 };
-	var LogLevel = LogLevels["default"];
+	var LogLevels = { debug: 1, "default": 2, info: 2, warning: 3, error: 4, off: 5 };
+	var _logLevel = LogLevels["default"];
 
 	var _globalLogger = null;
 	function _checkNormalize() {
@@ -3507,6 +3507,81 @@
 	    return null;
 	}
 	var _normalizeError = _checkNormalize();
+	var LogLevel;
+	(function (LogLevel) {
+	    LogLevel["DEBUG"] = "DEBUG";
+	    LogLevel["INFO"] = "INFO";
+	    LogLevel["WARNING"] = "WARNING";
+	    LogLevel["ERROR"] = "ERROR";
+	    LogLevel["OFF"] = "OFF";
+	})(LogLevel = exports.LogLevel || (exports.LogLevel = {}));
+	var ErrorCode;
+	(function (ErrorCode) {
+	    ///////////////////
+	    // Generic Errors
+	    // Unknown Error
+	    ErrorCode["UNKNOWN_ERROR"] = "UNKNOWN_ERROR";
+	    // Not Implemented
+	    ErrorCode["NOT_IMPLEMENTED"] = "NOT_IMPLEMENTED";
+	    // Unsupported Operation
+	    //   - operation
+	    ErrorCode["UNSUPPORTED_OPERATION"] = "UNSUPPORTED_OPERATION";
+	    // Network Error (i.e. Ethereum Network, such as an invalid chain ID)
+	    ErrorCode["NETWORK_ERROR"] = "NETWORK_ERROR";
+	    // Some sort of bad response from the server
+	    ErrorCode["SERVER_ERROR"] = "SERVER_ERROR";
+	    // Timeout
+	    ErrorCode["TIMEOUT"] = "TIMEOUT";
+	    ///////////////////
+	    // Operational  Errors
+	    // Buffer Overrun
+	    ErrorCode["BUFFER_OVERRUN"] = "BUFFER_OVERRUN";
+	    // Numeric Fault
+	    //   - operation: the operation being executed
+	    //   - fault: the reason this faulted
+	    ErrorCode["NUMERIC_FAULT"] = "NUMERIC_FAULT";
+	    ///////////////////
+	    // Argument Errors
+	    // Missing new operator to an object
+	    //  - name: The name of the class
+	    ErrorCode["MISSING_NEW"] = "MISSING_NEW";
+	    // Invalid argument (e.g. value is incompatible with type) to a function:
+	    //   - argument: The argument name that was invalid
+	    //   - value: The value of the argument
+	    ErrorCode["INVALID_ARGUMENT"] = "INVALID_ARGUMENT";
+	    // Missing argument to a function:
+	    //   - count: The number of arguments received
+	    //   - expectedCount: The number of arguments expected
+	    ErrorCode["MISSING_ARGUMENT"] = "MISSING_ARGUMENT";
+	    // Too many arguments
+	    //   - count: The number of arguments received
+	    //   - expectedCount: The number of arguments expected
+	    ErrorCode["UNEXPECTED_ARGUMENT"] = "UNEXPECTED_ARGUMENT";
+	    ///////////////////
+	    // Blockchain Errors
+	    // Call exception
+	    //  - transaction: the transaction
+	    //  - address?: the contract address
+	    //  - args?: The arguments passed into the function
+	    //  - method?: The Solidity method signature
+	    //  - errorSignature?: The EIP848 error signature
+	    //  - errorArgs?: The EIP848 error parameters
+	    //  - reason: The reason (only for EIP848 "Error(string)")
+	    ErrorCode["CALL_EXCEPTION"] = "CALL_EXCEPTION";
+	    // Insufficien funds (< value + gasLimit * gasPrice)
+	    //   - transaction: the transaction attempted
+	    ErrorCode["INSUFFICIENT_FUNDS"] = "INSUFFICIENT_FUNDS";
+	    // Nonce has already been used
+	    //   - transaction: the transaction attempted
+	    ErrorCode["NONCE_EXPIRED"] = "NONCE_EXPIRED";
+	    // The replacement fee for the transaction is too low
+	    //   - transaction: the transaction attempted
+	    ErrorCode["REPLACEMENT_UNDERPRICED"] = "REPLACEMENT_UNDERPRICED";
+	    // The gas limit could not be estimated
+	    //   - transaction: the transaction passed to estimateGas
+	    ErrorCode["UNPREDICTABLE_GAS_LIMIT"] = "UNPREDICTABLE_GAS_LIMIT";
+	})(ErrorCode = exports.ErrorCode || (exports.ErrorCode = {}));
+	;
 	var Logger = /** @class */ (function () {
 	    function Logger(version) {
 	        Object.defineProperty(this, "version", {
@@ -3515,16 +3590,12 @@
 	            writable: false
 	        });
 	    }
-	    Logger.prototype.setLogLevel = function (logLevel) {
-	        var level = LogLevels[logLevel];
-	        if (level == null) {
-	            this.warn("invalid log level - " + logLevel);
-	            return;
-	        }
-	        LogLevel = level;
-	    };
 	    Logger.prototype._log = function (logLevel, args) {
-	        if (LogLevel > LogLevels[logLevel]) {
+	        var level = logLevel.toLowerCase();
+	        if (LogLevels[level] == null) {
+	            this.throwArgumentError("invalid log level name", "logLevel", logLevel);
+	        }
+	        if (_logLevel > LogLevels[level]) {
 	            return;
 	        }
 	        console.log.apply(console, args);
@@ -3682,90 +3753,30 @@
 	        _censorErrors = !!censorship;
 	        _permanentCensorErrors = !!permanent;
 	    };
-	    Logger.errors = {
-	        ///////////////////
-	        // Generic Errors
-	        // Unknown Error
-	        UNKNOWN_ERROR: "UNKNOWN_ERROR",
-	        // Not Implemented
-	        NOT_IMPLEMENTED: "NOT_IMPLEMENTED",
-	        // Unsupported Operation
-	        //   - operation
-	        UNSUPPORTED_OPERATION: "UNSUPPORTED_OPERATION",
-	        // Network Error (i.e. Ethereum Network, such as an invalid chain ID)
-	        NETWORK_ERROR: "NETWORK_ERROR",
-	        // Some sort of bad response from the server
-	        SERVER_ERROR: "SERVER_ERROR",
-	        // Timeout
-	        TIMEOUT: "TIMEOUT",
-	        ///////////////////
-	        // Operational  Errors
-	        // Buffer Overrun
-	        BUFFER_OVERRUN: "BUFFER_OVERRUN",
-	        // Numeric Fault
-	        //   - operation: the operation being executed
-	        //   - fault: the reason this faulted
-	        NUMERIC_FAULT: "NUMERIC_FAULT",
-	        ///////////////////
-	        // Argument Errors
-	        // Missing new operator to an object
-	        //  - name: The name of the class
-	        MISSING_NEW: "MISSING_NEW",
-	        // Invalid argument (e.g. value is incompatible with type) to a function:
-	        //   - argument: The argument name that was invalid
-	        //   - value: The value of the argument
-	        INVALID_ARGUMENT: "INVALID_ARGUMENT",
-	        // Missing argument to a function:
-	        //   - count: The number of arguments received
-	        //   - expectedCount: The number of arguments expected
-	        MISSING_ARGUMENT: "MISSING_ARGUMENT",
-	        // Too many arguments
-	        //   - count: The number of arguments received
-	        //   - expectedCount: The number of arguments expected
-	        UNEXPECTED_ARGUMENT: "UNEXPECTED_ARGUMENT",
-	        ///////////////////
-	        // Blockchain Errors
-	        // Call exception
-	        //  - transaction: the transaction
-	        //  - address?: the contract address
-	        //  - args?: The arguments passed into the function
-	        //  - method?: The Solidity method signature
-	        //  - errorSignature?: The EIP848 error signature
-	        //  - errorArgs?: The EIP848 error parameters
-	        //  - reason: The reason (only for EIP848 "Error(string)")
-	        CALL_EXCEPTION: "CALL_EXCEPTION",
-	        // Insufficien funds (< value + gasLimit * gasPrice)
-	        //   - transaction: the transaction attempted
-	        INSUFFICIENT_FUNDS: "INSUFFICIENT_FUNDS",
-	        // Nonce has already been used
-	        //   - transaction: the transaction attempted
-	        NONCE_EXPIRED: "NONCE_EXPIRED",
-	        // The replacement fee for the transaction is too low
-	        //   - transaction: the transaction attempted
-	        REPLACEMENT_UNDERPRICED: "REPLACEMENT_UNDERPRICED",
-	        // The gas limit could not be estimated
-	        //   - transaction: the transaction passed to estimateGas
-	        UNPREDICTABLE_GAS_LIMIT: "UNPREDICTABLE_GAS_LIMIT",
+	    Logger.setLogLevel = function (logLevel) {
+	        var level = LogLevels[logLevel];
+	        if (level == null) {
+	            Logger.globalLogger().warn("invalid log level - " + logLevel);
+	            return;
+	        }
+	        _logLevel = level;
 	    };
-	    Logger.levels = {
-	        DEBUG: "DEBUG",
-	        INFO: "INFO",
-	        WARNING: "WARNING",
-	        ERROR: "ERROR",
-	        OFF: "OFF"
-	    };
+	    Logger.errors = ErrorCode;
+	    Logger.levels = LogLevel;
 	    return Logger;
 	}());
 	exports.Logger = Logger;
 	});
 
 	var index = unwrapExports(lib);
-	var lib_1 = lib.Logger;
+	var lib_1 = lib.LogLevel;
+	var lib_2 = lib.ErrorCode;
+	var lib_3 = lib.Logger;
 
 	var _version$2 = createCommonjsModule(function (module, exports) {
 	"use strict";
 	Object.defineProperty(exports, "__esModule", { value: true });
-	exports.version = "bytes/5.0.0-beta.136";
+	exports.version = "bytes/5.0.0-beta.138";
 	});
 
 	var _version$3 = unwrapExports(_version$2);
@@ -3826,7 +3837,7 @@
 	        var result = [];
 	        while (value) {
 	            result.unshift(value & 0xff);
-	            value /= 256;
+	            value = parseInt(String(value / 256));
 	        }
 	        if (result.length === 0) {
 	            result.push(0);
@@ -4172,8 +4183,8 @@
 
 	var index$1 = unwrapExports(lib$1);
 	var lib_1$1 = lib$1.isBytesLike;
-	var lib_2 = lib$1.isBytes;
-	var lib_3 = lib$1.arrayify;
+	var lib_2$1 = lib$1.isBytes;
+	var lib_3$1 = lib$1.arrayify;
 	var lib_4 = lib$1.concat;
 	var lib_5 = lib$1.stripZeros;
 	var lib_6 = lib$1.zeroPad;
@@ -4191,7 +4202,7 @@
 	var _version$4 = createCommonjsModule(function (module, exports) {
 	"use strict";
 	Object.defineProperty(exports, "__esModule", { value: true });
-	exports.version = "bignumber/5.0.0-beta.135";
+	exports.version = "bignumber/5.0.0-beta.139";
 	});
 
 	var _version$5 = unwrapExports(_version$4);
@@ -4228,7 +4239,7 @@
 	        var _newTarget = this.constructor;
 	        logger.checkNew(_newTarget, BigNumber);
 	        if (constructorGuard !== _constructorGuard) {
-	            logger.throwError("cannot call consturtor directly; use BigNumber.from", lib.Logger.errors.UNSUPPORTED_OPERATION, {
+	            logger.throwError("cannot call constructor directly; use BigNumber.from", lib.Logger.errors.UNSUPPORTED_OPERATION, {
 	                operation: "new (BigNumber)"
 	            });
 	        }
@@ -4265,13 +4276,53 @@
 	        return toBigNumber(toBN(this).mul(toBN(other)));
 	    };
 	    BigNumber.prototype.mod = function (other) {
-	        return toBigNumber(toBN(this).mod(toBN(other)));
+	        var value = toBN(other);
+	        if (value.isNeg()) {
+	            throwFault("cannot modulo negative values", "mod");
+	        }
+	        return toBigNumber(toBN(this).umod(value));
 	    };
 	    BigNumber.prototype.pow = function (other) {
 	        return toBigNumber(toBN(this).pow(toBN(other)));
 	    };
-	    BigNumber.prototype.maskn = function (value) {
+	    BigNumber.prototype.and = function (other) {
+	        var value = toBN(other);
+	        if (this.isNegative() || value.isNeg()) {
+	            throwFault("cannot 'and' negative values", "and");
+	        }
+	        return toBigNumber(toBN(this).and(value));
+	    };
+	    BigNumber.prototype.or = function (other) {
+	        var value = toBN(other);
+	        if (this.isNegative() || value.isNeg()) {
+	            throwFault("cannot 'or' negative values", "or");
+	        }
+	        return toBigNumber(toBN(this).or(value));
+	    };
+	    BigNumber.prototype.xor = function (other) {
+	        var value = toBN(other);
+	        if (this.isNegative() || value.isNeg()) {
+	            throwFault("cannot 'xor' negative values", "xor");
+	        }
+	        return toBigNumber(toBN(this).xor(value));
+	    };
+	    BigNumber.prototype.mask = function (value) {
+	        if (this.isNegative() || value < 0) {
+	            throwFault("cannot mask negative values", "mask");
+	        }
 	        return toBigNumber(toBN(this).maskn(value));
+	    };
+	    BigNumber.prototype.shl = function (value) {
+	        if (this.isNegative() || value < 0) {
+	            throwFault("cannot shift negative values", "shl");
+	        }
+	        return toBigNumber(toBN(this).shln(value));
+	    };
+	    BigNumber.prototype.shr = function (value) {
+	        if (this.isNegative() || value < 0) {
+	            throwFault("cannot shift negative values", "shr");
+	        }
+	        return toBigNumber(toBN(this).shrn(value));
 	    };
 	    BigNumber.prototype.eq = function (other) {
 	        return toBN(this).eq(toBN(other));
@@ -4287,6 +4338,9 @@
 	    };
 	    BigNumber.prototype.gte = function (other) {
 	        return toBN(this).gte(toBN(other));
+	    };
+	    BigNumber.prototype.isNegative = function () {
+	        return (this._hex[0] === "-");
 	    };
 	    BigNumber.prototype.isZero = function () {
 	        return toBN(this).isZero();
@@ -4631,7 +4685,7 @@
 	            decimals = 0;
 	        }
 	        if (decimals < 0 || decimals > 80 || (decimals % 1)) {
-	            logger.throwArgumentError("invalid decimal cound", "decimals", decimals);
+	            logger.throwArgumentError("invalid decimal count", "decimals", decimals);
 	        }
 	        // If we are already in range, we're done
 	        var comps = this.toString().split(".");
@@ -4755,15 +4809,15 @@
 
 	var index$2 = unwrapExports(lib$2);
 	var lib_1$2 = lib$2.BigNumber;
-	var lib_2$1 = lib$2.formatFixed;
-	var lib_3$1 = lib$2.FixedFormat;
+	var lib_2$2 = lib$2.formatFixed;
+	var lib_3$2 = lib$2.FixedFormat;
 	var lib_4$1 = lib$2.FixedNumber;
 	var lib_5$1 = lib$2.parseFixed;
 
 	var _version$6 = createCommonjsModule(function (module, exports) {
 	"use strict";
 	Object.defineProperty(exports, "__esModule", { value: true });
-	exports.version = "properties/5.0.0-beta.137";
+	exports.version = "properties/5.0.0-beta.141";
 	});
 
 	var _version$7 = unwrapExports(_version$6);
@@ -4771,6 +4825,42 @@
 
 	var lib$3 = createCommonjsModule(function (module, exports) {
 	"use strict";
+	var __awaiter = (commonjsGlobal && commonjsGlobal.__awaiter) || function (thisArg, _arguments, P, generator) {
+	    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+	    return new (P || (P = Promise))(function (resolve, reject) {
+	        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+	        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+	        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+	        step((generator = generator.apply(thisArg, _arguments || [])).next());
+	    });
+	};
+	var __generator = (commonjsGlobal && commonjsGlobal.__generator) || function (thisArg, body) {
+	    var _ = { label: 0, sent: function() { if (t[0] & 1) throw t[1]; return t[1]; }, trys: [], ops: [] }, f, y, t, g;
+	    return g = { next: verb(0), "throw": verb(1), "return": verb(2) }, typeof Symbol === "function" && (g[Symbol.iterator] = function() { return this; }), g;
+	    function verb(n) { return function (v) { return step([n, v]); }; }
+	    function step(op) {
+	        if (f) throw new TypeError("Generator is already executing.");
+	        while (_) try {
+	            if (f = 1, y && (t = op[0] & 2 ? y["return"] : op[0] ? y["throw"] || ((t = y["return"]) && t.call(y), 0) : y.next) && !(t = t.call(y, op[1])).done) return t;
+	            if (y = 0, t) op = [op[0] & 2, t.value];
+	            switch (op[0]) {
+	                case 0: case 1: t = op; break;
+	                case 4: _.label++; return { value: op[1], done: false };
+	                case 5: _.label++; y = op[1]; op = [0]; continue;
+	                case 7: op = _.ops.pop(); _.trys.pop(); continue;
+	                default:
+	                    if (!(t = _.trys, t = t.length > 0 && t[t.length - 1]) && (op[0] === 6 || op[0] === 2)) { _ = 0; continue; }
+	                    if (op[0] === 3 && (!t || (op[1] > t[0] && op[1] < t[3]))) { _.label = op[1]; break; }
+	                    if (op[0] === 6 && _.label < t[1]) { _.label = t[1]; t = op; break; }
+	                    if (t && _.label < t[2]) { _.label = t[2]; _.ops.push(op); break; }
+	                    if (t[2]) _.ops.pop();
+	                    _.trys.pop(); continue;
+	            }
+	            op = body.call(thisArg, _);
+	        } catch (e) { op = [6, e]; y = 0; } finally { f = t = 0; }
+	        if (op[0] & 5) throw op[1]; return { value: op[0] ? op[1] : void 0, done: true };
+	    }
+	};
 	Object.defineProperty(exports, "__esModule", { value: true });
 
 
@@ -4798,21 +4888,24 @@
 	}
 	exports.getStatic = getStatic;
 	function resolveProperties(object) {
-	    var promises = Object.keys(object).map(function (key) {
-	        var value = object[key];
-	        if (!(value instanceof Promise)) {
-	            return Promise.resolve({ key: key, value: value });
-	        }
-	        return value.then(function (value) {
-	            return { key: key, value: value };
+	    return __awaiter(this, void 0, void 0, function () {
+	        var promises, results;
+	        return __generator(this, function (_a) {
+	            switch (_a.label) {
+	                case 0:
+	                    promises = Object.keys(object).map(function (key) {
+	                        var value = object[key];
+	                        return Promise.resolve(value).then(function (v) { return ({ key: key, value: v }); });
+	                    });
+	                    return [4 /*yield*/, Promise.all(promises)];
+	                case 1:
+	                    results = _a.sent();
+	                    return [2 /*return*/, results.reduce(function (accum, result) {
+	                            accum[(result.key)] = result.value;
+	                            return accum;
+	                        }, {})];
+	            }
 	        });
-	    });
-	    return Promise.all(promises).then(function (results) {
-	        var result = {};
-	        return (results.reduce(function (accum, result) {
-	            accum[result.key] = result.value;
-	            return accum;
-	        }, result));
 	    });
 	}
 	exports.resolveProperties = resolveProperties;
@@ -4835,12 +4928,30 @@
 	    return result;
 	}
 	exports.shallowCopy = shallowCopy;
-	var opaque = { bigint: true, boolean: true, number: true, string: true };
+	var opaque = { bigint: true, boolean: true, "function": true, number: true, string: true };
+	function _isFrozen(object) {
+	    // Opaque objects are not mutable, so safe to copy by assignment
+	    if (object === undefined || object === null || opaque[typeof (object)]) {
+	        return true;
+	    }
+	    if (Array.isArray(object) || typeof (object) === "object") {
+	        if (!Object.isFrozen(object)) {
+	            return false;
+	        }
+	        var keys = Object.keys(object);
+	        for (var i = 0; i < keys.length; i++) {
+	            if (!_isFrozen(object[keys[i]])) {
+	                return false;
+	            }
+	        }
+	        return true;
+	    }
+	    return logger.throwArgumentError("Cannot deepCopy " + typeof (object), "object", object);
+	}
 	// Returns a new copy of object, such that no properties may be replaced.
 	// New properties may be added only to objects.
 	function _deepCopy(object) {
-	    // Opaque objects are not mutable, so safe to copy by assignment
-	    if (object === undefined || object === null || opaque[typeof (object)]) {
+	    if (_isFrozen(object)) {
 	        return object;
 	    }
 	    // Arrays are mutable, so we need to create a copy
@@ -4848,10 +4959,6 @@
 	        return Object.freeze(object.map(function (item) { return deepCopy(item); }));
 	    }
 	    if (typeof (object) === "object") {
-	        // Immutable objects are safe to just use
-	        if (Object.isFrozen(object)) {
-	            return object;
-	        }
 	        var result = {};
 	        for (var key in object) {
 	            var value = object[key];
@@ -4862,11 +4969,7 @@
 	        }
 	        return result;
 	    }
-	    // The function type is also immutable, so safe to copy by assignment
-	    if (typeof (object) === "function") {
-	        return object;
-	    }
-	    logger.throwArgumentError("Cannot deepCopy " + typeof (object), "object", object);
+	    return logger.throwArgumentError("Cannot deepCopy " + typeof (object), "object", object);
 	}
 	function deepCopy(object) {
 	    return _deepCopy(object);
@@ -4885,8 +4988,8 @@
 
 	var index$3 = unwrapExports(lib$3);
 	var lib_1$3 = lib$3.defineReadOnly;
-	var lib_2$2 = lib$3.getStatic;
-	var lib_3$2 = lib$3.resolveProperties;
+	var lib_2$3 = lib$3.getStatic;
+	var lib_3$3 = lib$3.resolveProperties;
 	var lib_4$2 = lib$3.checkProperties;
 	var lib_5$2 = lib$3.shallowCopy;
 	var lib_6$1 = lib$3.deepCopy;
@@ -4895,7 +4998,7 @@
 	var _version$8 = createCommonjsModule(function (module, exports) {
 	"use strict";
 	Object.defineProperty(exports, "__esModule", { value: true });
-	exports.version = "abi/5.0.0-beta.145";
+	exports.version = "abi/5.0.0-beta.154";
 	});
 
 	var _version$9 = unwrapExports(_version$8);
@@ -4925,6 +5028,7 @@
 	;
 	var _constructorGuard = {};
 	var ModifiersBytes = { calldata: true, memory: true, storage: true };
+	var ModifiersNest = { calldata: true, memory: true };
 	function checkModifier(type, name) {
 	    if (type === "bytes" || type === "string") {
 	        if (ModifiersBytes[name]) {
@@ -4933,6 +5037,11 @@
 	    }
 	    else if (type === "address") {
 	        if (name === "payable") {
+	            return true;
+	        }
+	    }
+	    else if (type.indexOf("[") >= 0 || type === "tuple") {
+	        if (ModifiersNest[name]) {
 	            return true;
 	        }
 	    }
@@ -4945,7 +5054,7 @@
 	function parseParamType(param, allowIndexed) {
 	    var originalParam = param;
 	    function throwError(i) {
-	        throw new Error("unexpected character '" + originalParam[i] + "' at position " + i + " in '" + originalParam + "'");
+	        logger.throwArgumentError("unexpected character at position " + i, "param", param);
 	    }
 	    param = param.replace(/\s/g, " ");
 	    function newNode(parent) {
@@ -5084,7 +5193,7 @@
 	        }
 	    }
 	    if (node.parent) {
-	        throw new Error("unexpected eof");
+	        logger.throwArgumentError("unexpected eof", "param", param);
 	    }
 	    delete parent.state;
 	    if (node.name === "indexed") {
@@ -5122,7 +5231,9 @@
 	var ParamType = /** @class */ (function () {
 	    function ParamType(constructorGuard, params) {
 	        if (constructorGuard !== _constructorGuard) {
-	            throw new Error("use fromString");
+	            logger.throwError("use fromString", lib.Logger.errors.UNSUPPORTED_OPERATION, {
+	                operation: "new ParamType()"
+	            });
 	        }
 	        populate(this, params);
 	        var match = this.type.match(paramTypeArray);
@@ -5238,7 +5349,9 @@
 	var Fragment = /** @class */ (function () {
 	    function Fragment(constructorGuard, params) {
 	        if (constructorGuard !== _constructorGuard) {
-	            throw new Error("use a static from method");
+	            logger.throwError("use a static from method", lib.Logger.errors.UNSUPPORTED_OPERATION, {
+	                operation: "new Fragment()"
+	            });
 	        }
 	        populate(this, params);
 	        this._isFragment = true;
@@ -5257,18 +5370,17 @@
 	        if (Fragment.isFragment(value)) {
 	            return value;
 	        }
-	        if (value.type === "function") {
-	            return FunctionFragment.fromObject(value);
-	        }
-	        else if (value.type === "event") {
-	            return EventFragment.fromObject(value);
-	        }
-	        else if (value.type === "constructor") {
-	            return ConstructorFragment.fromObject(value);
-	        }
-	        else if (value.type === "fallback") {
-	            // @TODO:
-	            return null;
+	        switch (value.type) {
+	            case "function":
+	                return FunctionFragment.fromObject(value);
+	            case "event":
+	                return EventFragment.fromObject(value);
+	            case "constructor":
+	                return ConstructorFragment.fromObject(value);
+	            case "fallback":
+	            case "receive":
+	                // @TODO: Something? Maybe return a FunctionFragment? A custom DefaultFunctionFragment?
+	                return null;
 	        }
 	        return logger.throwArgumentError("invalid fragment object", "value", value);
 	    };
@@ -5286,7 +5398,7 @@
 	        else if (value.split("(")[0].trim() === "constructor") {
 	            return ConstructorFragment.fromString(value.trim());
 	        }
-	        throw new Error("unknown fragment");
+	        return logger.throwArgumentError("unsupported fragment", "value", value);
 	    };
 	    Fragment.isFragment = function (value) {
 	        return !!(value && value._isFragment);
@@ -5337,19 +5449,20 @@
 	            return value;
 	        }
 	        if (value.type !== "event") {
-	            throw new Error("invalid event object - " + value.type);
+	            logger.throwArgumentError("invalid event object", "value", value);
 	        }
-	        return new EventFragment(_constructorGuard, {
+	        var params = {
 	            name: verifyIdentifier(value.name),
 	            anonymous: value.anonymous,
 	            inputs: (value.inputs ? value.inputs.map(ParamType.fromObject) : []),
 	            type: "event"
-	        });
+	        };
+	        return new EventFragment(_constructorGuard, params);
 	    };
 	    EventFragment.fromString = function (value) {
 	        var match = value.match(regexParen);
 	        if (!match) {
-	            throw new Error("invalid event: " + value);
+	            logger.throwArgumentError("invalid event string", "value", value);
 	        }
 	        var anonymous = false;
 	        match[3].split(" ").forEach(function (modifier) {
@@ -5381,10 +5494,10 @@
 	    var comps = value.split("@");
 	    if (comps.length !== 1) {
 	        if (comps.length > 2) {
-	            throw new Error("invalid signature");
+	            logger.throwArgumentError("invalid human-readable ABI signature", "value", value);
 	        }
 	        if (!comps[1].match(/^[0-9]+$/)) {
-	            throw new Error("invalid signature gas");
+	            logger.throwArgumentError("invalid human-readable ABI signature gas", "value", value);
 	        }
 	        params.gas = lib$2.BigNumber.from(comps[1]);
 	        return comps[0];
@@ -5429,31 +5542,45 @@
 	    };
 	    if (value.stateMutability != null) {
 	        result.stateMutability = value.stateMutability;
+	        // Set (and check things are consistent) the constant property
 	        result.constant = (result.stateMutability === "view" || result.stateMutability === "pure");
 	        if (value.constant != null) {
 	            if ((!!value.constant) !== result.constant) {
-	                throw new Error("cannot have constant function with mutability " + result.stateMutability);
+	                logger.throwArgumentError("cannot have constant function with mutability " + result.stateMutability, "value", value);
 	            }
 	        }
+	        // Set (and check things are consistent) the payable property
 	        result.payable = (result.stateMutability === "payable");
 	        if (value.payable != null) {
 	            if ((!!value.payable) !== result.payable) {
-	                throw new Error("cannot have payable function with mutability " + result.stateMutability);
+	                logger.throwArgumentError("cannot have payable function with mutability " + result.stateMutability, "value", value);
 	            }
 	        }
 	    }
 	    else if (value.payable != null) {
 	        result.payable = !!value.payable;
-	        result.stateMutability = (result.payable ? "payable" : "nonpayable");
-	        result.constant = !result.payable;
-	        if (value.constant != null && (value.constant !== result.constant)) {
-	            throw new Error("cannot have constant payable function");
+	        // If payable we can assume non-constant; otherwise we can't assume
+	        if (value.constant == null && !result.payable && value.type !== "constructor") {
+	            logger.throwArgumentError("unable to determine stateMutability", "value", value);
+	        }
+	        result.constant = !!value.constant;
+	        if (result.constant) {
+	            result.stateMutability = "view";
+	        }
+	        else {
+	            result.stateMutability = (result.payable ? "payable" : "nonpayable");
+	        }
+	        if (result.payable && result.constant) {
+	            logger.throwArgumentError("cannot have constant payable function", "value", value);
 	        }
 	    }
 	    else if (value.constant != null) {
 	        result.constant = !!value.constant;
 	        result.payable = !result.constant;
 	        result.stateMutability = (result.constant ? "view" : "payable");
+	    }
+	    else if (value.type !== "constructor") {
+	        logger.throwArgumentError("unable to determine stateMutability", "value", value);
 	    }
 	    return result;
 	}
@@ -5500,29 +5627,28 @@
 	            return value;
 	        }
 	        if (value.type !== "constructor") {
-	            throw new Error("invalid constructor object - " + value.type);
+	            logger.throwArgumentError("invalid constructor object", "value", value);
 	        }
 	        var state = verifyState(value);
 	        if (state.constant) {
-	            throw new Error("constructor cannot be constant");
+	            logger.throwArgumentError("constructor cannot be constant", "value", value);
 	        }
-	        return new ConstructorFragment(_constructorGuard, {
+	        var params = {
 	            name: null,
 	            type: value.type,
 	            inputs: (value.inputs ? value.inputs.map(ParamType.fromObject) : []),
 	            payable: state.payable,
+	            stateMutability: state.stateMutability,
 	            gas: (value.gas ? lib$2.BigNumber.from(value.gas) : null)
-	        });
+	        };
+	        return new ConstructorFragment(_constructorGuard, params);
 	    };
 	    ConstructorFragment.fromString = function (value) {
 	        var params = { type: "constructor" };
 	        value = parseGas(value, params);
 	        var parens = value.match(regexParen);
-	        if (!parens) {
-	            throw new Error("invalid constructor: " + value);
-	        }
-	        if (parens[1].trim() !== "constructor") {
-	            throw new Error("invalid constructor");
+	        if (!parens || parens[1].trim() !== "constructor") {
+	            logger.throwArgumentError("invalid constructor string", "value", value);
 	        }
 	        params.inputs = parseParams(parens[2].trim(), false);
 	        parseModifiers(parens[3].trim(), params);
@@ -5592,10 +5718,10 @@
 	            return value;
 	        }
 	        if (value.type !== "function") {
-	            throw new Error("invalid function object - " + value.type);
+	            logger.throwArgumentError("invalid function object", "value", value);
 	        }
 	        var state = verifyState(value);
-	        return new FunctionFragment(_constructorGuard, {
+	        var params = {
 	            type: value.type,
 	            name: verifyIdentifier(value.name),
 	            constant: state.constant,
@@ -5604,22 +5730,23 @@
 	            payable: state.payable,
 	            stateMutability: state.stateMutability,
 	            gas: (value.gas ? lib$2.BigNumber.from(value.gas) : null)
-	        });
+	        };
+	        return new FunctionFragment(_constructorGuard, params);
 	    };
 	    FunctionFragment.fromString = function (value) {
 	        var params = { type: "function" };
 	        value = parseGas(value, params);
 	        var comps = value.split(" returns ");
 	        if (comps.length > 2) {
-	            throw new Error("invalid function");
+	            logger.throwArgumentError("invalid function string", "value", value);
 	        }
 	        var parens = comps[0].match(regexParen);
 	        if (!parens) {
-	            throw new Error("invalid signature");
+	            logger.throwArgumentError("invalid function signature", "value", value);
 	        }
 	        params.name = parens[1].trim();
-	        if (!params.name.match(regexIdentifier)) {
-	            throw new Error("invalid identifier: '" + params.name + "'");
+	        if (params.name) {
+	            verifyIdentifier(params.name);
 	        }
 	        params.inputs = parseParams(parens[2], false);
 	        parseModifiers(parens[3].trim(), params);
@@ -5627,7 +5754,7 @@
 	        if (comps.length > 1) {
 	            var returns = comps[1].match(regexParen);
 	            if (returns[1].trim() != "" || returns[3].trim() != "") {
-	                throw new Error("unexpected tokens");
+	                logger.throwArgumentError("unexpected tokens", "value", value);
 	            }
 	            params.outputs = parseParams(returns[2], false);
 	        }
@@ -5660,7 +5787,7 @@
 	var regexIdentifier = new RegExp("^[A-Za-z_][A-Za-z0-9_]*$");
 	function verifyIdentifier(value) {
 	    if (!value || !value.match(regexIdentifier)) {
-	        throw new Error("invalid identifier: '" + value + "'");
+	        logger.throwArgumentError("invalid identifier \"" + value + "\"", "value", value);
 	    }
 	    return value;
 	}
@@ -5684,7 +5811,7 @@
 	            else if (c === ")") {
 	                depth--;
 	                if (depth === -1) {
-	                    throw new Error("unbalanced parenthsis");
+	                    logger.throwArgumentError("unbalanced parenthesis", "value", value);
 	                }
 	            }
 	        }
@@ -5713,8 +5840,31 @@
 
 
 	var logger = new lib.Logger(_version$8.version);
+	function checkResultErrors(result) {
+	    // Find the first error (if any)
+	    var errors = [];
+	    var checkErrors = function (path, object) {
+	        if (!Array.isArray(object)) {
+	            return;
+	        }
+	        for (var key in object) {
+	            var childPath = path.slice();
+	            childPath.push(key);
+	            try {
+	                checkErrors(childPath, object[key]);
+	            }
+	            catch (error) {
+	                errors.push({ path: childPath, error: error });
+	            }
+	        }
+	    };
+	    checkErrors([], result);
+	    return errors;
+	}
+	exports.checkResultErrors = checkResultErrors;
 	var Coder = /** @class */ (function () {
 	    function Coder(name, type, localName, dynamic) {
+	        // @TODO: defineReadOnly these
 	        this.name = name;
 	        this.type = type;
 	        this.localName = localName;
@@ -5841,9 +5991,10 @@
 	});
 
 	var abstractCoder$1 = unwrapExports(abstractCoder);
-	var abstractCoder_1 = abstractCoder.Coder;
-	var abstractCoder_2 = abstractCoder.Writer;
-	var abstractCoder_3 = abstractCoder.Reader;
+	var abstractCoder_1 = abstractCoder.checkResultErrors;
+	var abstractCoder_2 = abstractCoder.Coder;
+	var abstractCoder_3 = abstractCoder.Writer;
+	var abstractCoder_4 = abstractCoder.Reader;
 
 	var sha3 = createCommonjsModule(function (module) {
 	/**
@@ -6340,11 +6491,23 @@
 	var index$4 = unwrapExports(lib$4);
 	var lib_1$4 = lib$4.keccak256;
 
+	var _version$a = createCommonjsModule(function (module, exports) {
+	"use strict";
+	Object.defineProperty(exports, "__esModule", { value: true });
+	exports.version = "rlp/5.0.0-beta.133";
+	});
+
+	var _version$b = unwrapExports(_version$a);
+	var _version_1$5 = _version$a.version;
+
 	var lib$5 = createCommonjsModule(function (module, exports) {
 	"use strict";
 	Object.defineProperty(exports, "__esModule", { value: true });
 	//See: https://github.com/ethereum/wiki/wiki/RLP
 
+
+
+	var logger = new lib.Logger(_version$a.version);
 	function arrayifyInteger(value) {
 	    var result = [];
 	    while (value) {
@@ -6374,6 +6537,9 @@
 	        length_1.unshift(0xf7 + length_1.length);
 	        return length_1.concat(payload_1);
 	    }
+	    if (!lib$1.isBytesLike(object)) {
+	        logger.throwArgumentError("RLP object must be BytesLike", "object", object);
+	    }
 	    var data = Array.prototype.slice.call(lib$1.arrayify(object));
 	    if (data.length === 1 && data[0] <= 0x7f) {
 	        return data;
@@ -6397,7 +6563,7 @@
 	        result.push(decoded.result);
 	        childOffset += decoded.consumed;
 	        if (childOffset > offset + 1 + length) {
-	            throw new Error("invalid rlp");
+	            logger.throwError("child data too short", lib.Logger.errors.BUFFER_OVERRUN, {});
 	        }
 	    }
 	    return { consumed: (1 + length), result: result };
@@ -6405,35 +6571,35 @@
 	// returns { consumed: number, result: Object }
 	function _decode(data, offset) {
 	    if (data.length === 0) {
-	        throw new Error("invalid rlp data");
+	        logger.throwError("data too short", lib.Logger.errors.BUFFER_OVERRUN, {});
 	    }
 	    // Array with extra length prefix
 	    if (data[offset] >= 0xf8) {
 	        var lengthLength = data[offset] - 0xf7;
 	        if (offset + 1 + lengthLength > data.length) {
-	            throw new Error("too short");
+	            logger.throwError("data short segment too short", lib.Logger.errors.BUFFER_OVERRUN, {});
 	        }
 	        var length_2 = unarrayifyInteger(data, offset + 1, lengthLength);
 	        if (offset + 1 + lengthLength + length_2 > data.length) {
-	            throw new Error("to short");
+	            logger.throwError("data long segment too short", lib.Logger.errors.BUFFER_OVERRUN, {});
 	        }
 	        return _decodeChildren(data, offset, offset + 1 + lengthLength, lengthLength + length_2);
 	    }
 	    else if (data[offset] >= 0xc0) {
 	        var length_3 = data[offset] - 0xc0;
 	        if (offset + 1 + length_3 > data.length) {
-	            throw new Error("invalid rlp data");
+	            logger.throwError("data array too short", lib.Logger.errors.BUFFER_OVERRUN, {});
 	        }
 	        return _decodeChildren(data, offset, offset + 1, length_3);
 	    }
 	    else if (data[offset] >= 0xb8) {
 	        var lengthLength = data[offset] - 0xb7;
 	        if (offset + 1 + lengthLength > data.length) {
-	            throw new Error("invalid rlp data");
+	            logger.throwError("data array too short", lib.Logger.errors.BUFFER_OVERRUN, {});
 	        }
 	        var length_4 = unarrayifyInteger(data, offset + 1, lengthLength);
 	        if (offset + 1 + lengthLength + length_4 > data.length) {
-	            throw new Error("invalid rlp data");
+	            logger.throwError("data array too short", lib.Logger.errors.BUFFER_OVERRUN, {});
 	        }
 	        var result = lib$1.hexlify(data.slice(offset + 1 + lengthLength, offset + 1 + lengthLength + length_4));
 	        return { consumed: (1 + lengthLength + length_4), result: result };
@@ -6441,7 +6607,7 @@
 	    else if (data[offset] >= 0x80) {
 	        var length_5 = data[offset] - 0x80;
 	        if (offset + 1 + length_5 > data.length) {
-	            throw new Error("invalid rlp data");
+	            logger.throwError("data too short", lib.Logger.errors.BUFFER_OVERRUN, {});
 	        }
 	        var result = lib$1.hexlify(data.slice(offset + 1, offset + 1 + length_5));
 	        return { consumed: (1 + length_5), result: result };
@@ -6452,7 +6618,7 @@
 	    var bytes = lib$1.arrayify(data);
 	    var decoded = _decode(bytes, 0);
 	    if (decoded.consumed !== bytes.length) {
-	        throw new Error("invalid rlp data");
+	        logger.throwArgumentError("invalid rlp data", "data", data);
 	    }
 	    return decoded.result;
 	}
@@ -6461,16 +6627,16 @@
 
 	var index$5 = unwrapExports(lib$5);
 	var lib_1$5 = lib$5.encode;
-	var lib_2$3 = lib$5.decode;
+	var lib_2$4 = lib$5.decode;
 
-	var _version$a = createCommonjsModule(function (module, exports) {
+	var _version$c = createCommonjsModule(function (module, exports) {
 	"use strict";
 	Object.defineProperty(exports, "__esModule", { value: true });
-	exports.version = "address/5.0.0-beta.134";
+	exports.version = "address/5.0.0-beta.135";
 	});
 
-	var _version$b = unwrapExports(_version$a);
-	var _version_1$5 = _version$a.version;
+	var _version$d = unwrapExports(_version$c);
+	var _version_1$6 = _version$c.version;
 
 	var lib$6 = createCommonjsModule(function (module, exports) {
 	"use strict";
@@ -6483,7 +6649,7 @@
 
 
 
-	var logger = new lib.Logger(_version$a.version);
+	var logger = new lib.Logger(_version$c.version);
 	function getChecksumAddress(address) {
 	    if (!lib$1.isHexString(address, 20)) {
 	        logger.throwArgumentError("invalid address", "address", address);
@@ -6618,8 +6784,8 @@
 
 	var index$6 = unwrapExports(lib$6);
 	var lib_1$6 = lib$6.getAddress;
-	var lib_2$4 = lib$6.isAddress;
-	var lib_3$3 = lib$6.getIcapAddress;
+	var lib_2$5 = lib$6.isAddress;
+	var lib_3$4 = lib$6.getIcapAddress;
 	var lib_4$3 = lib$6.getContractAddress;
 	var lib_5$3 = lib$6.getCreate2Address;
 
@@ -6782,11 +6948,35 @@
 	        if (coder.dynamic) {
 	            var offset = reader.readValue();
 	            var offsetReader = baseReader.subReader(offset.toNumber());
-	            value = coder.decode(offsetReader);
+	            try {
+	                value = coder.decode(offsetReader);
+	            }
+	            catch (error) {
+	                // Cannot recover from this
+	                if (error.code === lib.Logger.errors.BUFFER_OVERRUN) {
+	                    throw error;
+	                }
+	                value = error;
+	                value.baseType = coder.name;
+	                value.name = coder.localName;
+	                value.type = coder.type;
+	            }
 	            dynamicLength += offsetReader.consumed;
 	        }
 	        else {
-	            value = coder.decode(reader);
+	            try {
+	                value = coder.decode(reader);
+	            }
+	            catch (error) {
+	                // Cannot recover from this
+	                if (error.code === lib.Logger.errors.BUFFER_OVERRUN) {
+	                    throw error;
+	                }
+	                value = error;
+	                value.baseType = coder.name;
+	                value.name = coder.localName;
+	                value.type = coder.type;
+	            }
 	        }
 	        if (value != undefined) {
 	            values.push(value);
@@ -6807,9 +6997,28 @@
 	        if (values[name] != null) {
 	            return;
 	        }
-	        values[name] = values[index];
+	        var value = values[index];
+	        if (value instanceof Error) {
+	            Object.defineProperty(values, name, {
+	                get: function () { throw value; }
+	            });
+	        }
+	        else {
+	            values[name] = value;
+	        }
 	    });
-	    return values;
+	    var _loop_1 = function (i) {
+	        var value = values[i];
+	        if (value instanceof Error) {
+	            Object.defineProperty(values, i, {
+	                get: function () { throw value; }
+	            });
+	        }
+	    };
+	    for (var i = 0; i < values.length; i++) {
+	        _loop_1(i);
+	    }
+	    return Object.freeze(values);
 	}
 	exports.unpack = unpack;
 	var ArrayCoder = /** @class */ (function (_super) {
@@ -6828,7 +7037,6 @@
 	            this._throwError("expected array value", value);
 	        }
 	        var count = this.length;
-	        //let result = new Uint8Array(0);
 	        if (count === -1) {
 	            count = value.length;
 	            writer.writeValue(value.length);
@@ -7062,8 +7270,8 @@
 
 	var index$7 = unwrapExports(lib$7);
 	var lib_1$7 = lib$7.AddressZero;
-	var lib_2$5 = lib$7.HashZero;
-	var lib_3$4 = lib$7.EtherSymbol;
+	var lib_2$6 = lib$7.HashZero;
+	var lib_3$5 = lib$7.EtherSymbol;
 	var lib_4$4 = lib$7.NegativeOne;
 	var lib_5$4 = lib$7.Zero;
 	var lib_6$2 = lib$7.One;
@@ -7103,24 +7311,24 @@
 	    NumberCoder.prototype.encode = function (writer, value) {
 	        var v = lib$2.BigNumber.from(value);
 	        // Check bounds are safe for encoding
-	        var maxUintValue = lib$7.MaxUint256.maskn(writer.wordSize * 8);
+	        var maxUintValue = lib$7.MaxUint256.mask(writer.wordSize * 8);
 	        if (this.signed) {
-	            var bounds = maxUintValue.maskn(this.size * 8 - 1);
+	            var bounds = maxUintValue.mask(this.size * 8 - 1);
 	            if (v.gt(bounds) || v.lt(bounds.add(lib$7.One).mul(lib$7.NegativeOne))) {
 	                this._throwError("value out-of-bounds", value);
 	            }
 	        }
-	        else if (v.lt(lib$7.Zero) || v.gt(maxUintValue.maskn(this.size * 8))) {
+	        else if (v.lt(lib$7.Zero) || v.gt(maxUintValue.mask(this.size * 8))) {
 	            this._throwError("value out-of-bounds", value);
 	        }
-	        v = v.toTwos(this.size * 8).maskn(this.size * 8);
+	        v = v.toTwos(this.size * 8).mask(this.size * 8);
 	        if (this.signed) {
 	            v = v.fromTwos(this.size * 8).toTwos(8 * writer.wordSize);
 	        }
 	        return writer.writeValue(v);
 	    };
 	    NumberCoder.prototype.decode = function (reader) {
-	        var value = reader.readValue().maskn(this.size * 8);
+	        var value = reader.readValue().mask(this.size * 8);
 	        if (this.signed) {
 	            value = value.fromTwos(this.size * 8);
 	        }
@@ -7134,14 +7342,14 @@
 	var number$1 = unwrapExports(number);
 	var number_1 = number.NumberCoder;
 
-	var _version$c = createCommonjsModule(function (module, exports) {
+	var _version$e = createCommonjsModule(function (module, exports) {
 	"use strict";
 	Object.defineProperty(exports, "__esModule", { value: true });
-	exports.version = "strings/5.0.0-beta.136";
+	exports.version = "strings/5.0.0-beta.137";
 	});
 
-	var _version$d = unwrapExports(_version$c);
-	var _version_1$6 = _version$c.version;
+	var _version$f = unwrapExports(_version$e);
+	var _version_1$7 = _version$e.version;
 
 	var utf8 = createCommonjsModule(function (module, exports) {
 	"use strict";
@@ -7149,7 +7357,7 @@
 
 
 
-	var logger = new lib.Logger(_version$c.version);
+	var logger = new lib.Logger(_version$e.version);
 	///////////////////////////////
 	var UnicodeNormalizationForm;
 	(function (UnicodeNormalizationForm) {
@@ -7673,8 +7881,8 @@
 
 	var index$8 = unwrapExports(lib$8);
 	var lib_1$8 = lib$8.formatBytes32String;
-	var lib_2$6 = lib$8.parseBytes32String;
-	var lib_3$5 = lib$8.nameprep;
+	var lib_2$7 = lib$8.parseBytes32String;
+	var lib_3$6 = lib$8.nameprep;
 	var lib_4$5 = lib$8._toEscapedUtf8String;
 	var lib_5$5 = lib$8.toUtf8Bytes;
 	var lib_6$3 = lib$8.toUtf8CodePoints;
@@ -7835,7 +8043,7 @@
 	            }
 	            return new fixedBytes.FixedBytesCoder(size, param.name);
 	        }
-	        return logger.throwError("invalid type", "type", param.type);
+	        return logger.throwArgumentError("invalid type", "type", param.type);
 	    };
 	    AbiCoder.prototype._getWordSize = function () { return 32; };
 	    AbiCoder.prototype._getReader = function (data) {
@@ -7874,14 +8082,14 @@
 	var abiCoder_1 = abiCoder.AbiCoder;
 	var abiCoder_2 = abiCoder.defaultAbiCoder;
 
-	var _version$e = createCommonjsModule(function (module, exports) {
+	var _version$g = createCommonjsModule(function (module, exports) {
 	"use strict";
 	Object.defineProperty(exports, "__esModule", { value: true });
-	exports.version = "hash/5.0.0-beta.133";
+	exports.version = "hash/5.0.0-beta.134";
 	});
 
-	var _version$f = unwrapExports(_version$e);
-	var _version_1$7 = _version$e.version;
+	var _version$h = unwrapExports(_version$g);
+	var _version_1$8 = _version$g.version;
 
 	var lib$9 = createCommonjsModule(function (module, exports) {
 	"use strict";
@@ -7891,7 +8099,7 @@
 
 
 
-	var logger = new lib.Logger(_version$e.version);
+	var logger = new lib.Logger(_version$g.version);
 	///////////////////////////////
 	var Zeros = new Uint8Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
 	var Partition = new RegExp("^((.*)\\.)?([^.]+)$");
@@ -7943,8 +8151,8 @@
 
 	var index$9 = unwrapExports(lib$9);
 	var lib_1$9 = lib$9.isValidName;
-	var lib_2$7 = lib$9.namehash;
-	var lib_3$6 = lib$9.id;
+	var lib_2$8 = lib$9.namehash;
+	var lib_3$7 = lib$9.id;
 	var lib_4$6 = lib$9.messagePrefix;
 	var lib_5$6 = lib$9.hashMessage;
 
@@ -7971,6 +8179,8 @@
 
 
 
+
+	exports.checkResultErrors = abstractCoder.checkResultErrors;
 
 
 
@@ -8002,6 +8212,22 @@
 	    return Indexed;
 	}(lib$3.Description));
 	exports.Indexed = Indexed;
+	function wrapAccessError(property, error) {
+	    var wrap = new Error("deferred error during ABI decoding triggered accessing " + property);
+	    wrap.error = error;
+	    return wrap;
+	}
+	function checkNames(fragment, type, params) {
+	    params.reduce(function (accum, param) {
+	        if (param.name) {
+	            if (accum[param.name]) {
+	                logger.throwArgumentError("duplicate " + type + " parameter " + JSON.stringify(param.name) + " in " + fragment.format("full"), "fragment", fragment);
+	            }
+	            accum[param.name] = true;
+	        }
+	        return accum;
+	    }, {});
+	}
 	var Interface = /** @class */ (function () {
 	    function Interface(fragments$1) {
 	        var _newTarget = this.constructor;
@@ -8031,12 +8257,16 @@
 	                        logger.warn("duplicate definition - constructor");
 	                        return;
 	                    }
+	                    checkNames(fragment, "input", fragment.inputs);
 	                    lib$3.defineReadOnly(_this, "deploy", fragment);
 	                    return;
 	                case "function":
+	                    checkNames(fragment, "input", fragment.inputs);
+	                    checkNames(fragment, "output", fragment.outputs);
 	                    bucket = _this.functions;
 	                    break;
 	                case "event":
+	                    checkNames(fragment, "input", fragment.inputs);
 	                    bucket = _this.events;
 	                    break;
 	                default:
@@ -8049,9 +8279,12 @@
 	            }
 	            bucket[signature] = fragment;
 	        });
-	        // If we do not have a constructor use the default "constructor() payable"
+	        // If we do not have a constructor add a default
 	        if (!this.deploy) {
-	            lib$3.defineReadOnly(this, "deploy", fragments.ConstructorFragment.from({ type: "constructor" }));
+	            lib$3.defineReadOnly(this, "deploy", fragments.ConstructorFragment.from({
+	                payable: false,
+	                type: "constructor"
+	            }));
 	        }
 	        lib$3.defineReadOnly(this, "_isInterface", true);
 	    }
@@ -8060,7 +8293,7 @@
 	            format = fragments.FormatTypes.full;
 	        }
 	        if (format === fragments.FormatTypes.sighash) {
-	            logger.throwArgumentError("interface does not support formating sighash", "format", format);
+	            logger.throwArgumentError("interface does not support formatting sighash", "format", format);
 	        }
 	        var abi = this.fragments.map(function (fragment) { return fragment.format(format); });
 	        // We need to re-bundle the JSON fragments a bit
@@ -8079,7 +8312,7 @@
 	    Interface.getSighash = function (functionFragment) {
 	        return lib$1.hexDataSlice(lib$9.id(functionFragment.format()), 0, 4);
 	    };
-	    Interface.getTopic = function (eventFragment) {
+	    Interface.getEventTopic = function (eventFragment) {
 	        return lib$9.id(eventFragment.format());
 	    };
 	    // Find a function definition by any means necessary (unless it is ambiguous)
@@ -8153,7 +8386,7 @@
 	        if (typeof (eventFragment) === "string") {
 	            eventFragment = this.getEvent(eventFragment);
 	        }
-	        return lib$3.getStatic(this.constructor, "getTopic")(eventFragment);
+	        return lib$3.getStatic(this.constructor, "getEventTopic")(eventFragment);
 	    };
 	    Interface.prototype._decodeParams = function (params, data) {
 	        return this._abiCoder.decode(params, data);
@@ -8237,6 +8470,19 @@
 	        if (!eventFragment.anonymous) {
 	            topics.push(this.getEventTopic(eventFragment));
 	        }
+	        var encodeTopic = function (param, value) {
+	            if (param.type === "string") {
+	                return lib$9.id(value);
+	            }
+	            else if (param.type === "bytes") {
+	                return lib$4.keccak256(lib$1.hexlify(value));
+	            }
+	            // Check addresses are valid
+	            if (param.type === "address") {
+	                _this._abiCoder.encode(["address"], [value]);
+	            }
+	            return lib$1.hexZeroPad(lib$1.hexlify(value), 32);
+	        };
 	        values.forEach(function (value, index) {
 	            var param = eventFragment.inputs[index];
 	            if (!param.indexed) {
@@ -8248,21 +8494,14 @@
 	            if (value == null) {
 	                topics.push(null);
 	            }
-	            else if (param.type === "string") {
-	                topics.push(lib$9.id(value));
-	            }
-	            else if (param.type === "bytes") {
-	                topics.push(lib$4.keccak256(lib$1.hexlify(value)));
-	            }
-	            else if (param.type.indexOf("[") !== -1 || param.type.substring(0, 5) === "tuple") {
+	            else if (param.baseType === "array" || param.baseType === "tuple") {
 	                logger.throwArgumentError("filtering with tuples or arrays not supported", ("contract." + param.name), value);
 	            }
+	            else if (Array.isArray(value)) {
+	                topics.push(value.map(function (value) { return encodeTopic(param, value); }));
+	            }
 	            else {
-	                // Check addresses are valid
-	                if (param.type === "address") {
-	                    _this._abiCoder.encode(["address"], [value]);
-	                }
-	                topics.push(lib$1.hexZeroPad(lib$1.hexlify(value), 32));
+	                topics.push(encodeTopic(param, value));
 	            }
 	        });
 	        // Trim off trailing nulls
@@ -8270,6 +8509,47 @@
 	            topics.pop();
 	        }
 	        return topics;
+	    };
+	    Interface.prototype.encodeEventLog = function (eventFragment, values) {
+	        var _this = this;
+	        if (typeof (eventFragment) === "string") {
+	            eventFragment = this.getEvent(eventFragment);
+	        }
+	        var topics = [];
+	        var dataTypes = [];
+	        var dataValues = [];
+	        if (!eventFragment.anonymous) {
+	            topics.push(this.getEventTopic(eventFragment));
+	        }
+	        if (values.length !== eventFragment.inputs.length) {
+	            logger.throwArgumentError("event arguments/values mismatch", "values", values);
+	        }
+	        eventFragment.inputs.forEach(function (param, index) {
+	            var value = values[index];
+	            if (param.indexed) {
+	                if (param.type === "string") {
+	                    topics.push(lib$9.id(value));
+	                }
+	                else if (param.type === "bytes") {
+	                    topics.push(lib$4.keccak256(value));
+	                }
+	                else if (param.baseType === "tuple" || param.baseType === "array") {
+	                    // @TOOD
+	                    throw new Error("not implemented");
+	                }
+	                else {
+	                    topics.push(_this._abiCoder.encode([param.type], [value]));
+	                }
+	            }
+	            else {
+	                dataTypes.push(param);
+	                dataValues.push(value);
+	            }
+	        });
+	        return {
+	            data: this._abiCoder.encode(dataTypes, dataValues),
+	            topics: topics
+	        };
 	    };
 	    // Decode a filter for the event and the search criteria
 	    Interface.prototype.decodeEventLog = function (eventFragment, data, topics) {
@@ -8315,17 +8595,49 @@
 	                    result[index] = new Indexed({ _isIndexed: true, hash: resultIndexed[indexedIndex++] });
 	                }
 	                else {
-	                    result[index] = resultIndexed[indexedIndex++];
+	                    try {
+	                        result[index] = resultIndexed[indexedIndex++];
+	                    }
+	                    catch (error) {
+	                        result[index] = error;
+	                    }
 	                }
 	            }
 	            else {
-	                result[index] = resultNonIndexed[nonIndexedIndex++];
+	                try {
+	                    result[index] = resultNonIndexed[nonIndexedIndex++];
+	                }
+	                catch (error) {
+	                    result[index] = error;
+	                }
 	            }
+	            // Add the keyword argument if named and safe
 	            if (param.name && result[param.name] == null) {
-	                result[param.name] = result[index];
+	                var value_1 = result[index];
+	                // Make error named values throw on access
+	                if (value_1 instanceof Error) {
+	                    Object.defineProperty(result, param.name, {
+	                        get: function () { throw wrapAccessError("property " + JSON.stringify(param.name), value_1); }
+	                    });
+	                }
+	                else {
+	                    result[param.name] = value_1;
+	                }
 	            }
 	        });
-	        return result;
+	        var _loop_1 = function (i) {
+	            var value = result[i];
+	            if (value instanceof Error) {
+	                Object.defineProperty(result, i, {
+	                    get: function () { throw wrapAccessError("index " + i, value); }
+	                });
+	            }
+	        };
+	        // Make all error indexed values throw on access
+	        for (var i = 0; i < result.length; i++) {
+	            _loop_1(i);
+	        }
+	        return Object.freeze(result);
 	    };
 	    // Given a transaction, find the matching function fragment (if any) and
 	    // determine all its properties and call parameters
@@ -8381,10 +8693,11 @@
 	});
 
 	var _interface$1 = unwrapExports(_interface);
-	var _interface_1 = _interface.LogDescription;
-	var _interface_2 = _interface.TransactionDescription;
-	var _interface_3 = _interface.Indexed;
-	var _interface_4 = _interface.Interface;
+	var _interface_1 = _interface.checkResultErrors;
+	var _interface_2 = _interface.LogDescription;
+	var _interface_3 = _interface.TransactionDescription;
+	var _interface_4 = _interface.Indexed;
+	var _interface_5 = _interface.Interface;
 
 	var lib$a = createCommonjsModule(function (module, exports) {
 	"use strict";
@@ -8400,30 +8713,36 @@
 	exports.AbiCoder = abiCoder.AbiCoder;
 	exports.defaultAbiCoder = abiCoder.defaultAbiCoder;
 
+	exports.checkResultErrors = _interface.checkResultErrors;
 	exports.Indexed = _interface.Indexed;
 	exports.Interface = _interface.Interface;
+	exports.LogDescription = _interface.LogDescription;
+	exports.TransactionDescription = _interface.TransactionDescription;
 	});
 
 	var index$a = unwrapExports(lib$a);
 	var lib_1$a = lib$a.ConstructorFragment;
-	var lib_2$8 = lib$a.EventFragment;
-	var lib_3$7 = lib$a.FormatTypes;
+	var lib_2$9 = lib$a.EventFragment;
+	var lib_3$8 = lib$a.FormatTypes;
 	var lib_4$7 = lib$a.Fragment;
 	var lib_5$7 = lib$a.FunctionFragment;
 	var lib_6$4 = lib$a.ParamType;
 	var lib_7$4 = lib$a.AbiCoder;
 	var lib_8$3 = lib$a.defaultAbiCoder;
-	var lib_9$3 = lib$a.Indexed;
-	var lib_10$2 = lib$a.Interface;
+	var lib_9$3 = lib$a.checkResultErrors;
+	var lib_10$2 = lib$a.Indexed;
+	var lib_11$1 = lib$a.Interface;
+	var lib_12$1 = lib$a.LogDescription;
+	var lib_13$1 = lib$a.TransactionDescription;
 
-	var _version$g = createCommonjsModule(function (module, exports) {
+	var _version$i = createCommonjsModule(function (module, exports) {
 	"use strict";
 	Object.defineProperty(exports, "__esModule", { value: true });
-	exports.version = "abstract-provider/5.0.0-beta.138";
+	exports.version = "abstract-provider/5.0.0-beta.140";
 	});
 
-	var _version$h = unwrapExports(_version$g);
-	var _version_1$8 = _version$g.version;
+	var _version$j = unwrapExports(_version$i);
+	var _version_1$9 = _version$i.version;
 
 	var lib$b = createCommonjsModule(function (module, exports) {
 	"use strict";
@@ -8445,7 +8764,7 @@
 
 
 
-	var logger = new lib.Logger(_version$g.version);
+	var logger = new lib.Logger(_version$i.version);
 	;
 	;
 	//export type CallTransactionable = {
@@ -8546,19 +8865,19 @@
 
 	var index$b = unwrapExports(lib$b);
 	var lib_1$b = lib$b.ForkEvent;
-	var lib_2$9 = lib$b.BlockForkEvent;
-	var lib_3$8 = lib$b.TransactionForkEvent;
+	var lib_2$a = lib$b.BlockForkEvent;
+	var lib_3$9 = lib$b.TransactionForkEvent;
 	var lib_4$8 = lib$b.TransactionOrderForkEvent;
 	var lib_5$8 = lib$b.Provider;
 
-	var _version$i = createCommonjsModule(function (module, exports) {
+	var _version$k = createCommonjsModule(function (module, exports) {
 	"use strict";
 	Object.defineProperty(exports, "__esModule", { value: true });
-	exports.version = "abstract-signer/5.0.0-beta.140";
+	exports.version = "abstract-signer/5.0.0-beta.143";
 	});
 
-	var _version$j = unwrapExports(_version$i);
-	var _version_1$9 = _version$i.version;
+	var _version$l = unwrapExports(_version$k);
+	var _version_1$a = _version$k.version;
 
 	var lib$c = createCommonjsModule(function (module, exports) {
 	"use strict";
@@ -8615,7 +8934,7 @@
 
 
 
-	var logger = new lib.Logger(_version$i.version);
+	var logger = new lib.Logger(_version$k.version);
 	var allowedTransactionKeys = [
 	    "chainId", "data", "from", "gasLimit", "gasPrice", "nonce", "to", "value"
 	];
@@ -8636,27 +8955,61 @@
 	    ///////////////////
 	    // Sub-classes MAY override these
 	    Signer.prototype.getBalance = function (blockTag) {
-	        this._checkProvider("getBalance");
-	        return this.provider.getBalance(this.getAddress(), blockTag);
+	        return __awaiter(this, void 0, void 0, function () {
+	            return __generator(this, function (_a) {
+	                switch (_a.label) {
+	                    case 0:
+	                        this._checkProvider("getBalance");
+	                        return [4 /*yield*/, this.provider.getBalance(this.getAddress(), blockTag)];
+	                    case 1: return [2 /*return*/, _a.sent()];
+	                }
+	            });
+	        });
 	    };
 	    Signer.prototype.getTransactionCount = function (blockTag) {
-	        this._checkProvider("getTransactionCount");
-	        return this.provider.getTransactionCount(this.getAddress(), blockTag);
+	        return __awaiter(this, void 0, void 0, function () {
+	            return __generator(this, function (_a) {
+	                switch (_a.label) {
+	                    case 0:
+	                        this._checkProvider("getTransactionCount");
+	                        return [4 /*yield*/, this.provider.getTransactionCount(this.getAddress(), blockTag)];
+	                    case 1: return [2 /*return*/, _a.sent()];
+	                }
+	            });
+	        });
 	    };
 	    // Populates "from" if unspecified, and estimates the gas for the transation
 	    Signer.prototype.estimateGas = function (transaction) {
-	        var _this = this;
-	        this._checkProvider("estimateGas");
-	        return lib$3.resolveProperties(this.checkTransaction(transaction)).then(function (tx) {
-	            return _this.provider.estimateGas(tx);
+	        return __awaiter(this, void 0, void 0, function () {
+	            var tx;
+	            return __generator(this, function (_a) {
+	                switch (_a.label) {
+	                    case 0:
+	                        this._checkProvider("estimateGas");
+	                        return [4 /*yield*/, lib$3.resolveProperties(this.checkTransaction(transaction))];
+	                    case 1:
+	                        tx = _a.sent();
+	                        return [4 /*yield*/, this.provider.estimateGas(tx)];
+	                    case 2: return [2 /*return*/, _a.sent()];
+	                }
+	            });
 	        });
 	    };
 	    // Populates "from" if unspecified, and calls with the transation
 	    Signer.prototype.call = function (transaction, blockTag) {
-	        var _this = this;
-	        this._checkProvider("call");
-	        return lib$3.resolveProperties(this.checkTransaction(transaction)).then(function (tx) {
-	            return _this.provider.call(tx);
+	        return __awaiter(this, void 0, void 0, function () {
+	            var tx;
+	            return __generator(this, function (_a) {
+	                switch (_a.label) {
+	                    case 0:
+	                        this._checkProvider("call");
+	                        return [4 /*yield*/, lib$3.resolveProperties(this.checkTransaction(transaction))];
+	                    case 1:
+	                        tx = _a.sent();
+	                        return [4 /*yield*/, this.provider.call(tx, blockTag)];
+	                    case 2: return [2 /*return*/, _a.sent()];
+	                }
+	            });
 	        });
 	    };
 	    // Populates all fields in a transaction, signs it and sends it to the network
@@ -8670,16 +9023,43 @@
 	        });
 	    };
 	    Signer.prototype.getChainId = function () {
-	        this._checkProvider("getChainId");
-	        return this.provider.getNetwork().then(function (network) { return network.chainId; });
+	        return __awaiter(this, void 0, void 0, function () {
+	            var network;
+	            return __generator(this, function (_a) {
+	                switch (_a.label) {
+	                    case 0:
+	                        this._checkProvider("getChainId");
+	                        return [4 /*yield*/, this.provider.getNetwork()];
+	                    case 1:
+	                        network = _a.sent();
+	                        return [2 /*return*/, network.chainId];
+	                }
+	            });
+	        });
 	    };
 	    Signer.prototype.getGasPrice = function () {
-	        this._checkProvider("getGasPrice");
-	        return this.provider.getGasPrice();
+	        return __awaiter(this, void 0, void 0, function () {
+	            return __generator(this, function (_a) {
+	                switch (_a.label) {
+	                    case 0:
+	                        this._checkProvider("getGasPrice");
+	                        return [4 /*yield*/, this.provider.getGasPrice()];
+	                    case 1: return [2 /*return*/, _a.sent()];
+	                }
+	            });
+	        });
 	    };
 	    Signer.prototype.resolveName = function (name) {
-	        this._checkProvider("resolveName");
-	        return this.provider.resolveName(name);
+	        return __awaiter(this, void 0, void 0, function () {
+	            return __generator(this, function (_a) {
+	                switch (_a.label) {
+	                    case 0:
+	                        this._checkProvider("resolveName");
+	                        return [4 /*yield*/, this.provider.resolveName(name)];
+	                    case 1: return [2 /*return*/, _a.sent()];
+	                }
+	            });
+	        });
 	    };
 	    // Checks a transaction does not contain invalid keys and if
 	    // no "from" is provided, populates it.
@@ -8813,16 +9193,16 @@
 
 	var index$c = unwrapExports(lib$c);
 	var lib_1$c = lib$c.Signer;
-	var lib_2$a = lib$c.VoidSigner;
+	var lib_2$b = lib$c.VoidSigner;
 
-	var _version$k = createCommonjsModule(function (module, exports) {
+	var _version$m = createCommonjsModule(function (module, exports) {
 	"use strict";
 	Object.defineProperty(exports, "__esModule", { value: true });
-	exports.version = "contracts/5.0.0-beta.143";
+	exports.version = "contracts/5.0.0-beta.152";
 	});
 
-	var _version$l = unwrapExports(_version$k);
-	var _version_1$a = _version$k.version;
+	var _version$n = unwrapExports(_version$m);
+	var _version_1$b = _version$m.version;
 
 	var lib$d = createCommonjsModule(function (module, exports) {
 	"use strict";
@@ -8839,6 +9219,42 @@
 	        d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
 	    };
 	})();
+	var __awaiter = (commonjsGlobal && commonjsGlobal.__awaiter) || function (thisArg, _arguments, P, generator) {
+	    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+	    return new (P || (P = Promise))(function (resolve, reject) {
+	        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+	        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+	        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+	        step((generator = generator.apply(thisArg, _arguments || [])).next());
+	    });
+	};
+	var __generator = (commonjsGlobal && commonjsGlobal.__generator) || function (thisArg, body) {
+	    var _ = { label: 0, sent: function() { if (t[0] & 1) throw t[1]; return t[1]; }, trys: [], ops: [] }, f, y, t, g;
+	    return g = { next: verb(0), "throw": verb(1), "return": verb(2) }, typeof Symbol === "function" && (g[Symbol.iterator] = function() { return this; }), g;
+	    function verb(n) { return function (v) { return step([n, v]); }; }
+	    function step(op) {
+	        if (f) throw new TypeError("Generator is already executing.");
+	        while (_) try {
+	            if (f = 1, y && (t = op[0] & 2 ? y["return"] : op[0] ? y["throw"] || ((t = y["return"]) && t.call(y), 0) : y.next) && !(t = t.call(y, op[1])).done) return t;
+	            if (y = 0, t) op = [op[0] & 2, t.value];
+	            switch (op[0]) {
+	                case 0: case 1: t = op; break;
+	                case 4: _.label++; return { value: op[1], done: false };
+	                case 5: _.label++; y = op[1]; op = [0]; continue;
+	                case 7: op = _.ops.pop(); _.trys.pop(); continue;
+	                default:
+	                    if (!(t = _.trys, t = t.length > 0 && t[t.length - 1]) && (op[0] === 6 || op[0] === 2)) { _ = 0; continue; }
+	                    if (op[0] === 3 && (!t || (op[1] > t[0] && op[1] < t[3]))) { _.label = op[1]; break; }
+	                    if (op[0] === 6 && _.label < t[1]) { _.label = t[1]; t = op; break; }
+	                    if (t && _.label < t[2]) { _.label = t[2]; _.ops.push(op); break; }
+	                    if (t[2]) _.ops.pop();
+	                    _.trys.pop(); continue;
+	            }
+	            op = body.call(thisArg, _);
+	        } catch (e) { op = [6, e]; y = 0; } finally { f = t = 0; }
+	        if (op[0] & 5) throw op[1]; return { value: op[0] ? op[1] : void 0, done: true };
+	    }
+	};
 	var __spreadArrays = (commonjsGlobal && commonjsGlobal.__spreadArrays) || function () {
 	    for (var s = 0, i = 0, il = arguments.length; i < il; i++) s += arguments[i].length;
 	    for (var r = Array(s), k = 0, i = 0; i < il; i++)
@@ -8857,7 +9273,7 @@
 
 
 
-	var logger = new lib.Logger(_version$k.version);
+	var logger = new lib.Logger(_version$m.version);
 	///////////////////////////////
 	var allowedTransactionKeys = {
 	    chainId: true, data: true, from: true, gasLimit: true, gasPrice: true, nonce: true, to: true, value: true
@@ -8912,7 +9328,7 @@
 	            // Check for unexpected keys (e.g. using "gas" instead of "gasLimit")
 	            for (var key in tx) {
 	                if (!allowedTransactionKeys[key]) {
-	                    logger.throwError(("unknown transaxction override - " + key), "overrides", tx);
+	                    logger.throwArgumentError(("unknown transaction override - " + key), "overrides", tx);
 	                }
 	            }
 	        }
@@ -8926,11 +9342,11 @@
 	        // If the contract was just deployed, wait until it is minded
 	        if (contract.deployTransaction != null) {
 	            tx.to = contract._deployed(blockTag).then(function () {
-	                return contract.addressPromise;
+	                return contract.resolvedAddress;
 	            });
 	        }
 	        else {
-	            tx.to = contract.addressPromise;
+	            tx.to = contract.resolvedAddress;
 	        }
 	        return resolveAddresses(contract.signer || contract.provider, params, method.inputs).then(function (params) {
 	            tx.data = contract.interface.encodeFunctionData(method, params);
@@ -8994,7 +9410,11 @@
 	                    return wait(confirmations).then(function (receipt) {
 	                        receipt.events = receipt.logs.map(function (log) {
 	                            var event = lib$3.deepCopy(log);
-	                            var parsed = contract.interface.parseLog(log);
+	                            var parsed = null;
+	                            try {
+	                                parsed = contract.interface.parseLog(log);
+	                            }
+	                            catch (e) { }
 	                            if (parsed) {
 	                                event.args = parsed.args;
 	                                event.decode = function (data, topics) {
@@ -9073,6 +9493,10 @@
 	    };
 	    RunningEvent.prototype.prepareEvent = function (event) {
 	    };
+	    // Returns the array that will be applied to an emit
+	    RunningEvent.prototype.getEmit = function (event) {
+	        return [event];
+	    };
 	    return RunningEvent;
 	}());
 	var ErrorRunningEvent = /** @class */ (function (_super) {
@@ -9082,6 +9506,11 @@
 	    }
 	    return ErrorRunningEvent;
 	}(RunningEvent));
+	// @TODO Fragment should inherit Wildcard? and just override getEmit?
+	//       or have a common abstract super class, with enough constructor
+	//       options to configure both.
+	// A Fragment Event will populate all the properties that Wildcard
+	// will, and additioanlly dereference the arguments when emitting
 	var FragmentRunningEvent = /** @class */ (function (_super) {
 	    __extends(FragmentRunningEvent, _super);
 	    function FragmentRunningEvent(address, contractInterface, fragment, topics) {
@@ -9113,10 +9542,30 @@
 	        event.decode = function (data, topics) {
 	            return _this.interface.decodeEventLog(_this.fragment, data, topics);
 	        };
-	        event.args = this.interface.decodeEventLog(this.fragment, event.data, event.topics);
+	        try {
+	            event.args = this.interface.decodeEventLog(this.fragment, event.data, event.topics);
+	        }
+	        catch (error) {
+	            event.args = null;
+	            event.decodeError = error;
+	        }
+	    };
+	    FragmentRunningEvent.prototype.getEmit = function (event) {
+	        var errors = lib$a.checkResultErrors(event.args);
+	        if (errors.length) {
+	            throw errors[0].error;
+	        }
+	        var args = (event.args || []).slice();
+	        args.push(event);
+	        return args;
 	    };
 	    return FragmentRunningEvent;
 	}(RunningEvent));
+	// A Wildard Event will attempt to populate:
+	//  - event            The name of the event name
+	//  - eventSignature   The full signature of the event
+	//  - decode           A function to decode data and topics
+	//  - args             The decoded data and topics
 	var WildcardRunningEvent = /** @class */ (function (_super) {
 	    __extends(WildcardRunningEvent, _super);
 	    function WildcardRunningEvent(address, contractInterface) {
@@ -9128,14 +9577,17 @@
 	    WildcardRunningEvent.prototype.prepareEvent = function (event) {
 	        var _this = this;
 	        _super.prototype.prepareEvent.call(this, event);
-	        var parsed = this.interface.parseLog(event);
-	        if (parsed) {
-	            event.event = parsed.name;
-	            event.eventSignature = parsed.signature;
+	        try {
+	            var parsed_1 = this.interface.parseLog(event);
+	            event.event = parsed_1.name;
+	            event.eventSignature = parsed_1.signature;
 	            event.decode = function (data, topics) {
-	                return _this.interface.decodeEventLog(parsed.eventFragment, data, topics);
+	                return _this.interface.decodeEventLog(parsed_1.eventFragment, data, topics);
 	            };
-	            event.args = parsed.args;
+	            event.args = parsed_1.args;
+	        }
+	        catch (error) {
+	            // No matching event
 	        }
 	    };
 	    return WildcardRunningEvent;
@@ -9160,7 +9612,7 @@
 	            logger.throwArgumentError("invalid signer or provider", "signerOrProvider", signerOrProvider);
 	        }
 	        lib$3.defineReadOnly(this, "callStatic", {});
-	        lib$3.defineReadOnly(this, "estimate", {});
+	        lib$3.defineReadOnly(this, "estimateGas", {});
 	        lib$3.defineReadOnly(this, "functions", {});
 	        lib$3.defineReadOnly(this, "populateTransaction", {});
 	        lib$3.defineReadOnly(this, "filters", {});
@@ -9197,7 +9649,7 @@
 	        lib$3.defineReadOnly(this, "_wrappedEmits", {});
 	        lib$3.defineReadOnly(this, "address", addressOrName);
 	        if (this.provider) {
-	            lib$3.defineReadOnly(this, "addressPromise", this.provider.resolveName(addressOrName).then(function (address) {
+	            lib$3.defineReadOnly(this, "resolvedAddress", this.provider.resolveName(addressOrName).then(function (address) {
 	                if (address == null) {
 	                    throw new Error("name not found");
 	                }
@@ -9209,51 +9661,73 @@
 	        }
 	        else {
 	            try {
-	                lib$3.defineReadOnly(this, "addressPromise", Promise.resolve((this.interface.constructor).getAddress(addressOrName)));
+	                lib$3.defineReadOnly(this, "resolvedAddress", Promise.resolve((this.interface.constructor).getAddress(addressOrName)));
 	            }
 	            catch (error) {
 	                // Without a provider, we cannot use ENS names
 	                logger.throwArgumentError("provider is required to use non-address contract address", "addressOrName", addressOrName);
 	            }
 	        }
-	        var uniqueFunctions = {};
-	        Object.keys(this.interface.functions).forEach(function (name) {
-	            var fragment = _this.interface.functions[name];
-	            // @TODO: This should take in fragment
-	            var run = runMethod(_this, name, {});
-	            if (_this[name] == null) {
-	                lib$3.defineReadOnly(_this, name, run);
-	            }
-	            if (_this.functions[name] == null) {
-	                lib$3.defineReadOnly(_this.functions, name, run);
-	            }
-	            if (_this.callStatic[name] == null) {
-	                lib$3.defineReadOnly(_this.callStatic, name, runMethod(_this, name, { callStatic: true }));
-	            }
-	            if (_this.populateTransaction[name] == null) {
-	                lib$3.defineReadOnly(_this.populateTransaction, name, runMethod(_this, name, { transaction: true }));
-	            }
-	            if (_this.estimate[name] == null) {
-	                lib$3.defineReadOnly(_this.estimate, name, runMethod(_this, name, { estimate: true }));
-	            }
-	            if (!uniqueFunctions[fragment.name]) {
-	                uniqueFunctions[fragment.name] = [];
-	            }
-	            uniqueFunctions[fragment.name].push(name);
-	        });
-	        Object.keys(uniqueFunctions).forEach(function (name) {
-	            var signatures = uniqueFunctions[name];
-	            if (signatures.length > 1) {
-	                logger.warn("Duplicate definition of " + name + " (" + signatures.join(", ") + ")");
+	        var uniqueNames = {};
+	        var uniqueSignatures = {};
+	        Object.keys(this.interface.functions).forEach(function (signature) {
+	            var fragment = _this.interface.functions[signature];
+	            // Check that the signature is unique; if not the ABI generation has
+	            // not been cleaned or may be incorrectly generated
+	            if (uniqueSignatures[signature]) {
+	                logger.warn("Duplicate ABI entry for " + JSON.stringify(name));
 	                return;
 	            }
-	            if (_this[name] == null) {
-	                lib$3.defineReadOnly(_this, name, _this[signatures[0]]);
+	            uniqueSignatures[signature] = true;
+	            // Track unique names; we only expose bare named functions if they
+	            // are ambiguous
+	            {
+	                var name_1 = fragment.name;
+	                if (!uniqueNames[name_1]) {
+	                    uniqueNames[name_1] = [];
+	                }
+	                uniqueNames[name_1].push(signature);
 	            }
-	            lib$3.defineReadOnly(_this.functions, name, _this.functions[signatures[0]]);
-	            lib$3.defineReadOnly(_this.callStatic, name, _this.callStatic[signatures[0]]);
-	            lib$3.defineReadOnly(_this.populateTransaction, name, _this.populateTransaction[signatures[0]]);
-	            lib$3.defineReadOnly(_this.estimate, name, _this.estimate[signatures[0]]);
+	            // @TODO: This should take in fragment
+	            var run = runMethod(_this, signature, {});
+	            if (_this[signature] == null) {
+	                lib$3.defineReadOnly(_this, signature, run);
+	            }
+	            if (_this.functions[signature] == null) {
+	                lib$3.defineReadOnly(_this.functions, signature, run);
+	            }
+	            if (_this.callStatic[signature] == null) {
+	                lib$3.defineReadOnly(_this.callStatic, signature, runMethod(_this, signature, { callStatic: true }));
+	            }
+	            if (_this.populateTransaction[signature] == null) {
+	                lib$3.defineReadOnly(_this.populateTransaction, signature, runMethod(_this, signature, { transaction: true }));
+	            }
+	            if (_this.estimateGas[signature] == null) {
+	                lib$3.defineReadOnly(_this.estimateGas, signature, runMethod(_this, signature, { estimate: true }));
+	            }
+	        });
+	        Object.keys(uniqueNames).forEach(function (name) {
+	            // Ambiguous names to not get attached as bare names
+	            var signatures = uniqueNames[name];
+	            if (signatures.length > 1) {
+	                return;
+	            }
+	            var signature = signatures[0];
+	            if (_this[name] == null) {
+	                lib$3.defineReadOnly(_this, name, _this[signature]);
+	            }
+	            if (_this.functions[name] == null) {
+	                lib$3.defineReadOnly(_this.functions, name, _this.functions[signature]);
+	            }
+	            if (_this.callStatic[name] == null) {
+	                lib$3.defineReadOnly(_this.callStatic, name, _this.callStatic[signature]);
+	            }
+	            if (_this.populateTransaction[name] == null) {
+	                lib$3.defineReadOnly(_this.populateTransaction, name, _this.populateTransaction[signature]);
+	            }
+	            if (_this.estimateGas[name] == null) {
+	                lib$3.defineReadOnly(_this.estimateGas, name, _this.estimateGas[signature]);
+	            }
 	        });
 	    }
 	    Contract.getContractAddress = function (transaction) {
@@ -9311,7 +9785,7 @@
 	            }
 	            logger.throwError("cannot override " + key, lib.Logger.errors.UNSUPPORTED_OPERATION, { operation: key });
 	        });
-	        tx.to = this.addressPromise;
+	        tx.to = this.resolvedAddress;
 	        return this.deployed().then(function () {
 	            return _this.signer.sendTransaction(tx);
 	        });
@@ -9348,53 +9822,51 @@
 	            if (eventName === "error") {
 	                return this._normalizeRunningEvent(new ErrorRunningEvent());
 	            }
+	            // Listen for any event that is registered
+	            if (eventName === "event") {
+	                return this._normalizeRunningEvent(new RunningEvent("event", null));
+	            }
 	            // Listen for any event
 	            if (eventName === "*") {
 	                return this._normalizeRunningEvent(new WildcardRunningEvent(this.address, this.interface));
 	            }
+	            // Get the event Fragment (throws if ambiguous/unknown event)
 	            var fragment = this.interface.getEvent(eventName);
-	            if (!fragment) {
-	                logger.throwArgumentError("unknown event - " + eventName, "eventName", eventName);
-	            }
 	            return this._normalizeRunningEvent(new FragmentRunningEvent(this.address, this.interface, fragment));
 	        }
-	        var filter = {
-	            address: this.address
-	        };
-	        // Find the matching event in the ABI; if none, we still allow filtering
-	        // since it may be a filter for an otherwise unknown event
-	        if (eventName.topics) {
-	            if (eventName.topics[0]) {
+	        // We have topics to filter by...
+	        if (eventName.topics && eventName.topics.length > 0) {
+	            // Is it a known topichash? (throws if no matching topichash)
+	            try {
 	                var fragment = this.interface.getEvent(eventName.topics[0]);
-	                if (fragment) {
-	                    return this._normalizeRunningEvent(new FragmentRunningEvent(this.address, this.interface, fragment, eventName.topics));
-	                }
+	                return this._normalizeRunningEvent(new FragmentRunningEvent(this.address, this.interface, fragment, eventName.topics));
 	            }
-	            filter.topics = eventName.topics;
+	            catch (error) { }
+	            // Filter by the unknown topichash
+	            var filter = {
+	                address: this.address,
+	                topics: eventName.topics
+	            };
+	            return this._normalizeRunningEvent(new RunningEvent(getEventTag(filter), filter));
 	        }
-	        return this._normalizeRunningEvent(new RunningEvent(getEventTag(filter), filter));
+	        return this._normalizeRunningEvent(new WildcardRunningEvent(this.address, this.interface));
 	    };
 	    Contract.prototype._checkRunningEvents = function (runningEvent) {
 	        if (runningEvent.listenerCount() === 0) {
 	            delete this._runningEvents[runningEvent.tag];
-	        }
-	        // If we have a poller for this, remove it
-	        var emit = this._wrappedEmits[runningEvent.tag];
-	        if (emit) {
-	            this.provider.off(runningEvent.filter, emit);
-	            delete this._wrappedEmits[runningEvent.tag];
+	            // If we have a poller for this, remove it
+	            var emit = this._wrappedEmits[runningEvent.tag];
+	            if (emit) {
+	                this.provider.off(runningEvent.filter, emit);
+	                delete this._wrappedEmits[runningEvent.tag];
+	            }
 	        }
 	    };
+	    // Subclasses can override this to gracefully recover
+	    // from parse errors if they wish
 	    Contract.prototype._wrapEvent = function (runningEvent, log, listener) {
 	        var _this = this;
 	        var event = lib$3.deepCopy(log);
-	        try {
-	            runningEvent.prepareEvent(event);
-	        }
-	        catch (error) {
-	            this.emit("error", error);
-	            throw error;
-	        }
 	        event.removeListener = function () {
 	            if (!listener) {
 	                return;
@@ -9405,6 +9877,8 @@
 	        event.getBlock = function () { return _this.provider.getBlock(log.blockHash); };
 	        event.getTransaction = function () { return _this.provider.getTransaction(log.transactionHash); };
 	        event.getTransactionReceipt = function () { return _this.provider.getTransactionReceipt(log.transactionHash); };
+	        // This may throw if the topics and data mismatch the signature
+	        runningEvent.prepareEvent(event);
 	        return event;
 	    };
 	    Contract.prototype._addEventListener = function (runningEvent, listener, once) {
@@ -9415,13 +9889,28 @@
 	        runningEvent.addListener(listener, once);
 	        // Track this running event and its listeners (may already be there; but no hard in updating)
 	        this._runningEvents[runningEvent.tag] = runningEvent;
-	        // If we are not polling the provider, start
+	        // If we are not polling the provider, start polling
 	        if (!this._wrappedEmits[runningEvent.tag]) {
 	            var wrappedEmit = function (log) {
 	                var event = _this._wrapEvent(runningEvent, log, listener);
-	                var args = (event.args || []);
-	                args.push(event);
-	                _this.emit.apply(_this, __spreadArrays([runningEvent.filter], args));
+	                // Try to emit the result for the parameterized event...
+	                if (event.decodeError == null) {
+	                    try {
+	                        var args = runningEvent.getEmit(event);
+	                        _this.emit.apply(_this, __spreadArrays([runningEvent.filter], args));
+	                    }
+	                    catch (error) {
+	                        event.decodeError = error.error;
+	                    }
+	                }
+	                // Always emit "event" for fragment-base events
+	                if (runningEvent.filter != null) {
+	                    _this.emit("event", event);
+	                }
+	                // Emit "error" if there was an error
+	                if (event.decodeError != null) {
+	                    _this.emit("error", event.decodeError, event);
+	                }
 	            };
 	            this._wrappedEmits[runningEvent.tag] = wrappedEmit;
 	            // Special events, like "error" do not have a filter
@@ -9565,7 +10054,7 @@
 	        }
 	        var tx = {};
 	        // If we have 1 additional argument, we allow transaction overrides
-	        if (args.length === this.interface.deploy.inputs.length + 1) {
+	        if (args.length === this.interface.deploy.inputs.length + 1 && typeof (args[args.length - 1]) === "object") {
 	            tx = lib$3.shallowCopy(args.pop());
 	            for (var key in tx) {
 	                if (!allowedTransactionKeys[key]) {
@@ -9590,20 +10079,35 @@
 	        return tx;
 	    };
 	    ContractFactory.prototype.deploy = function () {
-	        var _this = this;
 	        var args = [];
 	        for (var _i = 0; _i < arguments.length; _i++) {
 	            args[_i] = arguments[_i];
 	        }
-	        return resolveAddresses(this.signer, args, this.interface.deploy.inputs).then(function (args) {
-	            // Get the deployment transaction (with optional overrides)
-	            var tx = _this.getDeployTransaction.apply(_this, args);
-	            // Send the deployment transaction
-	            return _this.signer.sendTransaction(tx).then(function (tx) {
-	                var address = (_this.constructor).getContractAddress(tx);
-	                var contract = (_this.constructor).getContract(address, _this.interface, _this.signer);
-	                lib$3.defineReadOnly(contract, "deployTransaction", tx);
-	                return contract;
+	        return __awaiter(this, void 0, void 0, function () {
+	            var overrides, params, unsignedTx, tx, address, contract;
+	            return __generator(this, function (_a) {
+	                switch (_a.label) {
+	                    case 0:
+	                        overrides = {};
+	                        // If 1 extra parameter was passed in, it contains overrides
+	                        if (args.length === this.interface.deploy.inputs.length + 1) {
+	                            overrides = args.pop();
+	                        }
+	                        // Make sure the call matches the constructor signature
+	                        logger.checkArgumentCount(args.length, this.interface.deploy.inputs.length, " in Contract constructor");
+	                        return [4 /*yield*/, resolveAddresses(this.signer, args, this.interface.deploy.inputs)];
+	                    case 1:
+	                        params = _a.sent();
+	                        params.push(overrides);
+	                        unsignedTx = this.getDeployTransaction.apply(this, params);
+	                        return [4 /*yield*/, this.signer.sendTransaction(unsignedTx)];
+	                    case 2:
+	                        tx = _a.sent();
+	                        address = lib$3.getStatic(this.constructor, "getContractAddress")(tx);
+	                        contract = lib$3.getStatic(this.constructor, "getContract")(address, this.interface, this.signer);
+	                        lib$3.defineReadOnly(contract, "deployTransaction", tx);
+	                        return [2 /*return*/, contract];
+	                }
 	            });
 	        });
 	    };
@@ -9646,7 +10150,7 @@
 
 	var index$d = unwrapExports(lib$d);
 	var lib_1$d = lib$d.Contract;
-	var lib_2$b = lib$d.ContractFactory;
+	var lib_2$c = lib$d.ContractFactory;
 
 	var lib$e = createCommonjsModule(function (module, exports) {
 	"use strict";
@@ -9776,8 +10280,8 @@
 
 	var index$e = unwrapExports(lib$e);
 	var lib_1$e = lib$e.BaseX;
-	var lib_2$c = lib$e.Base32;
-	var lib_3$9 = lib$e.Base58;
+	var lib_2$d = lib$e.Base32;
+	var lib_3$a = lib$e.Base58;
 
 	var minimalisticAssert = assert;
 
@@ -10937,15 +11441,19 @@
 	hash.sha512 = hash.sha.sha512;
 	hash.ripemd160 = hash.ripemd.ripemd160;
 	});
+	var hash_2 = hash_1.hmac;
+	var hash_3 = hash_1.ripemd160;
+	var hash_4 = hash_1.sha256;
+	var hash_5 = hash_1.sha512;
 
-	var _version$m = createCommonjsModule(function (module, exports) {
+	var _version$o = createCommonjsModule(function (module, exports) {
 	"use strict";
 	Object.defineProperty(exports, "__esModule", { value: true });
-	exports.version = "sha2/5.0.0-beta.134";
+	exports.version = "sha2/5.0.0-beta.137";
 	});
 
-	var _version$n = unwrapExports(_version$m);
-	var _version_1$b = _version$m.version;
+	var _version$p = unwrapExports(_version$o);
+	var _version_1$c = _version$o.version;
 
 	var browser = createCommonjsModule(function (module, exports) {
 	"use strict";
@@ -10961,7 +11469,7 @@
 
 
 
-	var logger = new lib.Logger(_version$m.version);
+	var logger = new lib.Logger(_version$o.version);
 	var SupportedAlgorithm;
 	(function (SupportedAlgorithm) {
 	    SupportedAlgorithm["sha256"] = "sha256";
@@ -13416,14 +13924,14 @@
 	});
 	var elliptic_2 = elliptic_1.ec;
 
-	var _version$o = createCommonjsModule(function (module, exports) {
+	var _version$q = createCommonjsModule(function (module, exports) {
 	"use strict";
 	Object.defineProperty(exports, "__esModule", { value: true });
-	exports.version = "signing-key/5.0.0-beta.135";
+	exports.version = "signing-key/5.0.0-beta.136";
 	});
 
-	var _version$p = unwrapExports(_version$o);
-	var _version_1$c = _version$o.version;
+	var _version$r = unwrapExports(_version$q);
+	var _version_1$d = _version$q.version;
 
 	var lib$f = createCommonjsModule(function (module, exports) {
 	"use strict";
@@ -13433,7 +13941,7 @@
 
 
 
-	var logger = new lib.Logger(_version$o.version);
+	var logger = new lib.Logger(_version$q.version);
 	var _curve = null;
 	function getCurve() {
 	    if (!_curve) {
@@ -13509,17 +14017,17 @@
 
 	var index$f = unwrapExports(lib$f);
 	var lib_1$f = lib$f.SigningKey;
-	var lib_2$d = lib$f.recoverPublicKey;
-	var lib_3$a = lib$f.computePublicKey;
+	var lib_2$e = lib$f.recoverPublicKey;
+	var lib_3$b = lib$f.computePublicKey;
 
-	var _version$q = createCommonjsModule(function (module, exports) {
+	var _version$s = createCommonjsModule(function (module, exports) {
 	"use strict";
 	Object.defineProperty(exports, "__esModule", { value: true });
-	exports.version = "transactions/5.0.0-beta.134";
+	exports.version = "transactions/5.0.0-beta.136";
 	});
 
-	var _version$r = unwrapExports(_version$q);
-	var _version_1$d = _version$q.version;
+	var _version$t = unwrapExports(_version$s);
+	var _version_1$e = _version$s.version;
 
 	var lib$g = createCommonjsModule(function (module, exports) {
 	"use strict";
@@ -13541,7 +14049,7 @@
 
 
 
-	var logger = new lib.Logger(_version$q.version);
+	var logger = new lib.Logger(_version$s.version);
 	///////////////////////////////
 	function handleAddress(value) {
 	    if (value === "0x") {
@@ -13647,7 +14155,7 @@
 	function parse(rawTransaction) {
 	    var transaction = RLP.decode(rawTransaction);
 	    if (transaction.length !== 9 && transaction.length !== 6) {
-	        logger.throwArgumentError("invalid raw transaction", "rawTransactin", rawTransaction);
+	        logger.throwArgumentError("invalid raw transaction", "rawTransaction", rawTransaction);
 	    }
 	    var tx = {
 	        nonce: handleNumber(transaction[0]).toNumber(),
@@ -13706,18 +14214,18 @@
 
 	var index$g = unwrapExports(lib$g);
 	var lib_1$g = lib$g.computeAddress;
-	var lib_2$e = lib$g.recoverAddress;
-	var lib_3$b = lib$g.serialize;
+	var lib_2$f = lib$g.recoverAddress;
+	var lib_3$c = lib$g.serialize;
 	var lib_4$9 = lib$g.parse;
 
-	var _version$s = createCommonjsModule(function (module, exports) {
+	var _version$u = createCommonjsModule(function (module, exports) {
 	"use strict";
 	Object.defineProperty(exports, "__esModule", { value: true });
-	exports.version = "wordlists/5.0.0-beta.135";
+	exports.version = "wordlists/5.0.0-beta.137";
 	});
 
-	var _version$t = unwrapExports(_version$s);
-	var _version_1$e = _version$s.version;
+	var _version$v = unwrapExports(_version$u);
+	var _version_1$f = _version$u.version;
 
 	var wordlist = createCommonjsModule(function (module, exports) {
 	"use strict";
@@ -13728,7 +14236,7 @@
 
 
 
-	exports.logger = new lib.Logger(_version$s.version);
+	exports.logger = new lib.Logger(_version$u.version);
 	var Wordlist = /** @class */ (function () {
 	    function Wordlist(locale) {
 	        var _newTarget = this.constructor;
@@ -13847,14 +14355,14 @@
 	var browser_1$2 = browser$4.Wordlist;
 	var browser_2$1 = browser$4.wordlists;
 
-	var _version$u = createCommonjsModule(function (module, exports) {
+	var _version$w = createCommonjsModule(function (module, exports) {
 	"use strict";
 	Object.defineProperty(exports, "__esModule", { value: true });
-	exports.version = "hdnode/5.0.0-beta.137";
+	exports.version = "hdnode/5.0.0-beta.140";
 	});
 
-	var _version$v = unwrapExports(_version$u);
-	var _version_1$f = _version$u.version;
+	var _version$x = unwrapExports(_version$w);
+	var _version_1$g = _version$w.version;
 
 	var lib$h = createCommonjsModule(function (module, exports) {
 	"use strict";
@@ -13871,7 +14379,7 @@
 
 
 
-	var logger = new lib.Logger(_version$u.version);
+	var logger = new lib.Logger(_version$w.version);
 	var N = lib$2.BigNumber.from("0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141");
 	// "Bitcoin seed"
 	var MasterSecret = lib$8.toUtf8Bytes("Bitcoin seed");
@@ -14106,7 +14614,7 @@
 	                }
 	                return new HDNode(_constructorGuard, lib$1.hexlify(key.slice(1)), null, parentFingerprint, chainCode, index, depth, null);
 	        }
-	        return logger.throwError("invalid extended key", "extendedKey", "[REDACTED]");
+	        return logger.throwArgumentError("invalid extended key", "extendedKey", "[REDACTED]");
 	    };
 	    return HDNode;
 	}());
@@ -14196,20 +14704,20 @@
 
 	var index$h = unwrapExports(lib$h);
 	var lib_1$h = lib$h.defaultPath;
-	var lib_2$f = lib$h.HDNode;
-	var lib_3$c = lib$h.mnemonicToSeed;
+	var lib_2$g = lib$h.HDNode;
+	var lib_3$d = lib$h.mnemonicToSeed;
 	var lib_4$a = lib$h.mnemonicToEntropy;
 	var lib_5$9 = lib$h.entropyToMnemonic;
 	var lib_6$5 = lib$h.isValidMnemonic;
 
-	var _version$w = createCommonjsModule(function (module, exports) {
+	var _version$y = createCommonjsModule(function (module, exports) {
 	"use strict";
 	Object.defineProperty(exports, "__esModule", { value: true });
-	exports.version = "random/5.0.0-beta.133";
+	exports.version = "random/5.0.0-beta.136";
 	});
 
-	var _version$x = unwrapExports(_version$w);
-	var _version_1$g = _version$w.version;
+	var _version$z = unwrapExports(_version$y);
+	var _version_1$h = _version$y.version;
 
 	var shuffle = createCommonjsModule(function (module, exports) {
 	"use strict";
@@ -14236,10 +14744,28 @@
 
 
 
-	var logger = new lib.Logger(_version$w.version);
+	var logger = new lib.Logger(_version$y.version);
 
 	exports.shuffled = shuffle.shuffled;
-	var crypto = commonjsGlobal.crypto || commonjsGlobal.msCrypto;
+	var anyGlobal = null;
+	try {
+	    anyGlobal = window;
+	    if (anyGlobal == null) {
+	        throw new Error("try next");
+	    }
+	}
+	catch (error) {
+	    try {
+	        anyGlobal = commonjsGlobal;
+	        if (anyGlobal == null) {
+	            throw new Error("try next");
+	        }
+	    }
+	    catch (error) {
+	        anyGlobal = {};
+	    }
+	}
+	var crypto = anyGlobal.crypto || anyGlobal.msCrypto;
 	if (!crypto || !crypto.getRandomValues) {
 	    logger.warn("WARNING: Missing strong random number source");
 	    crypto = {
@@ -14251,7 +14777,7 @@
 	    };
 	}
 	function randomBytes(length) {
-	    if (length <= 0 || length > 1024 || parseInt(String(length)) != length) {
+	    if (length <= 0 || length > 1024 || (length % 1)) {
 	        logger.throwArgumentError("invalid length", "length", length);
 	    }
 	    var result = new Uint8Array(length);
@@ -15067,14 +15593,14 @@
 	})(commonjsGlobal);
 	});
 
-	var _version$y = createCommonjsModule(function (module, exports) {
+	var _version$A = createCommonjsModule(function (module, exports) {
 	"use strict";
 	Object.defineProperty(exports, "__esModule", { value: true });
-	exports.version = "json-wallets/5.0.0-beta.136";
+	exports.version = "json-wallets/5.0.0-beta.139";
 	});
 
-	var _version$z = unwrapExports(_version$y);
-	var _version_1$h = _version$y.version;
+	var _version$B = unwrapExports(_version$A);
+	var _version_1$i = _version$A.version;
 
 	var utils$1 = createCommonjsModule(function (module, exports) {
 	"use strict";
@@ -15161,7 +15687,7 @@
 
 
 
-	var logger = new lib.Logger(_version$y.version);
+	var logger = new lib.Logger(_version$A.version);
 
 	var CrowdsaleAccount = /** @class */ (function (_super) {
 	    __extends(CrowdsaleAccount, _super);
@@ -15762,6 +16288,7 @@
 	})(commonjsGlobal);
 	});
 	var scrypt_1 = scrypt.scrypt;
+	var scrypt_2 = scrypt.syncScrypt;
 
 	var rng;
 
@@ -16053,7 +16580,7 @@
 
 
 
-	var logger = new lib.Logger(_version$y.version);
+	var logger = new lib.Logger(_version$A.version);
 	// Exported Types
 	function hasMnemonic(value) {
 	    return (value != null && value.mnemonic && value.mnemonic.phrase);
@@ -16069,139 +16596,144 @@
 	    return KeystoreAccount;
 	}(lib$3.Description));
 	exports.KeystoreAccount = KeystoreAccount;
+	function _decrypt(data, key, ciphertext) {
+	    var cipher = utils$1.searchPath(data, "crypto/cipher");
+	    if (cipher === "aes-128-ctr") {
+	        var iv = utils$1.looseArrayify(utils$1.searchPath(data, "crypto/cipherparams/iv"));
+	        var counter = new aes_js_1.default.Counter(iv);
+	        var aesCtr = new aes_js_1.default.ModeOfOperation.ctr(key, counter);
+	        return lib$1.arrayify(aesCtr.decrypt(ciphertext));
+	    }
+	    return null;
+	}
+	function _getAccount(data, key) {
+	    var ciphertext = utils$1.looseArrayify(utils$1.searchPath(data, "crypto/ciphertext"));
+	    var computedMAC = lib$1.hexlify(lib$4.keccak256(lib$1.concat([key.slice(16, 32), ciphertext]))).substring(2);
+	    if (computedMAC !== utils$1.searchPath(data, "crypto/mac").toLowerCase()) {
+	        throw new Error("invalid password");
+	    }
+	    var privateKey = _decrypt(data, key.slice(0, 16), ciphertext);
+	    if (!privateKey) {
+	        logger.throwError("unsupported cipher", lib.Logger.errors.UNSUPPORTED_OPERATION, {
+	            operation: "decrypt"
+	        });
+	    }
+	    var mnemonicKey = key.slice(32, 64);
+	    var address = lib$g.computeAddress(privateKey);
+	    if (data.address) {
+	        var check = data.address.toLowerCase();
+	        if (check.substring(0, 2) !== "0x") {
+	            check = "0x" + check;
+	        }
+	        if (lib$6.getAddress(check) !== address) {
+	            throw new Error("address mismatch");
+	        }
+	    }
+	    var account = {
+	        _isKeystoreAccount: true,
+	        address: address,
+	        privateKey: lib$1.hexlify(privateKey)
+	    };
+	    // Version 0.1 x-ethers metadata must contain an encrypted mnemonic phrase
+	    if (utils$1.searchPath(data, "x-ethers/version") === "0.1") {
+	        var mnemonicCiphertext = utils$1.looseArrayify(utils$1.searchPath(data, "x-ethers/mnemonicCiphertext"));
+	        var mnemonicIv = utils$1.looseArrayify(utils$1.searchPath(data, "x-ethers/mnemonicCounter"));
+	        var mnemonicCounter = new aes_js_1.default.Counter(mnemonicIv);
+	        var mnemonicAesCtr = new aes_js_1.default.ModeOfOperation.ctr(mnemonicKey, mnemonicCounter);
+	        var path = utils$1.searchPath(data, "x-ethers/path") || lib$h.defaultPath;
+	        var locale = utils$1.searchPath(data, "x-ethers/locale") || "en";
+	        var entropy = lib$1.arrayify(mnemonicAesCtr.decrypt(mnemonicCiphertext));
+	        try {
+	            var mnemonic = lib$h.entropyToMnemonic(entropy, locale);
+	            var node = lib$h.HDNode.fromMnemonic(mnemonic, null, locale).derivePath(path);
+	            if (node.privateKey != account.privateKey) {
+	                throw new Error("mnemonic mismatch");
+	            }
+	            account.mnemonic = node.mnemonic;
+	        }
+	        catch (error) {
+	            // If we don't have the locale wordlist installed to
+	            // read this mnemonic, just bail and don't set the
+	            // mnemonic
+	            if (error.code !== lib.Logger.errors.INVALID_ARGUMENT || error.argument !== "wordlist") {
+	                throw error;
+	            }
+	        }
+	    }
+	    return new KeystoreAccount(account);
+	}
+	function pbkdf2Sync(passwordBytes, salt, count, dkLen, prfFunc) {
+	    return lib$1.arrayify(browser$2.pbkdf2(passwordBytes, salt, count, dkLen, prfFunc));
+	}
+	function pbkdf2(passwordBytes, salt, count, dkLen, prfFunc) {
+	    return Promise.resolve(pbkdf2Sync(passwordBytes, salt, count, dkLen, prfFunc));
+	}
+	function _computeKdfKey(data, password, pbkdf2Func, scryptFunc, progressCallback) {
+	    var passwordBytes = utils$1.getPassword(password);
+	    var kdf = utils$1.searchPath(data, "crypto/kdf");
+	    if (kdf && typeof (kdf) === "string") {
+	        var throwError = function (name, value) {
+	            return logger.throwArgumentError("invalid key-derivation function parameters", name, value);
+	        };
+	        if (kdf.toLowerCase() === "scrypt") {
+	            var salt = utils$1.looseArrayify(utils$1.searchPath(data, "crypto/kdfparams/salt"));
+	            var N = parseInt(utils$1.searchPath(data, "crypto/kdfparams/n"));
+	            var r = parseInt(utils$1.searchPath(data, "crypto/kdfparams/r"));
+	            var p = parseInt(utils$1.searchPath(data, "crypto/kdfparams/p"));
+	            // Check for all required parameters
+	            if (!N || !r || !p) {
+	                throwError("kdf", kdf);
+	            }
+	            // Make sure N is a power of 2
+	            if ((N & (N - 1)) !== 0) {
+	                throwError("N", N);
+	            }
+	            var dkLen = parseInt(utils$1.searchPath(data, "crypto/kdfparams/dklen"));
+	            if (dkLen !== 32) {
+	                throwError("dklen", dkLen);
+	            }
+	            return scryptFunc(passwordBytes, salt, N, r, p, 64, progressCallback);
+	        }
+	        else if (kdf.toLowerCase() === "pbkdf2") {
+	            var salt = utils$1.looseArrayify(utils$1.searchPath(data, "crypto/kdfparams/salt"));
+	            var prfFunc = null;
+	            var prf = utils$1.searchPath(data, "crypto/kdfparams/prf");
+	            if (prf === "hmac-sha256") {
+	                prfFunc = "sha256";
+	            }
+	            else if (prf === "hmac-sha512") {
+	                prfFunc = "sha512";
+	            }
+	            else {
+	                throwError("prf", prf);
+	            }
+	            var count = parseInt(utils$1.searchPath(data, "crypto/kdfparams/c"));
+	            var dkLen = parseInt(utils$1.searchPath(data, "crypto/kdfparams/dklen"));
+	            if (dkLen !== 32) {
+	                throwError("dklen", dkLen);
+	            }
+	            return pbkdf2Func(passwordBytes, salt, count, dkLen, prfFunc);
+	        }
+	    }
+	    return logger.throwArgumentError("unsupported key-derivation function", "kdf", kdf);
+	}
+	function decryptSync(json, password) {
+	    var data = JSON.parse(json);
+	    var key = _computeKdfKey(data, password, pbkdf2Sync, scrypt$1.syncScrypt);
+	    return _getAccount(data, key);
+	}
+	exports.decryptSync = decryptSync;
 	function decrypt(json, password, progressCallback) {
 	    return __awaiter(this, void 0, void 0, function () {
-	        var data, passwordBytes, decrypt, computeMAC, getAccount, kdf, throwError, salt, N, r, p, dkLen, key, salt, prfFunc, prf, c, dkLen, key;
+	        var data, key;
 	        return __generator(this, function (_a) {
 	            switch (_a.label) {
 	                case 0:
 	                    data = JSON.parse(json);
-	                    passwordBytes = utils$1.getPassword(password);
-	                    decrypt = function (key, ciphertext) {
-	                        var cipher = utils$1.searchPath(data, "crypto/cipher");
-	                        if (cipher === "aes-128-ctr") {
-	                            var iv = utils$1.looseArrayify(utils$1.searchPath(data, "crypto/cipherparams/iv"));
-	                            var counter = new aes_js_1.default.Counter(iv);
-	                            var aesCtr = new aes_js_1.default.ModeOfOperation.ctr(key, counter);
-	                            return lib$1.arrayify(aesCtr.decrypt(ciphertext));
-	                        }
-	                        return null;
-	                    };
-	                    computeMAC = function (derivedHalf, ciphertext) {
-	                        return lib$4.keccak256(lib$1.concat([derivedHalf, ciphertext]));
-	                    };
-	                    getAccount = function (key) {
-	                        return __awaiter(this, void 0, void 0, function () {
-	                            var ciphertext, computedMAC, privateKey, mnemonicKey, address, check, account, mnemonicCiphertext, mnemonicIv, mnemonicCounter, mnemonicAesCtr, path, locale, entropy, mnemonic, node;
-	                            return __generator(this, function (_a) {
-	                                ciphertext = utils$1.looseArrayify(utils$1.searchPath(data, "crypto/ciphertext"));
-	                                computedMAC = lib$1.hexlify(computeMAC(key.slice(16, 32), ciphertext)).substring(2);
-	                                if (computedMAC !== utils$1.searchPath(data, "crypto/mac").toLowerCase()) {
-	                                    throw new Error("invalid password");
-	                                }
-	                                privateKey = decrypt(key.slice(0, 16), ciphertext);
-	                                mnemonicKey = key.slice(32, 64);
-	                                if (!privateKey) {
-	                                    logger.throwError("unsupported cipher", lib.Logger.errors.UNSUPPORTED_OPERATION, {
-	                                        operation: "decrypt"
-	                                    });
-	                                }
-	                                address = lib$g.computeAddress(privateKey);
-	                                if (data.address) {
-	                                    check = data.address.toLowerCase();
-	                                    if (check.substring(0, 2) !== "0x") {
-	                                        check = "0x" + check;
-	                                    }
-	                                    if (lib$6.getAddress(check) !== address) {
-	                                        throw new Error("address mismatch");
-	                                    }
-	                                }
-	                                account = {
-	                                    _isKeystoreAccount: true,
-	                                    address: address,
-	                                    privateKey: lib$1.hexlify(privateKey)
-	                                };
-	                                // Version 0.1 x-ethers metadata must contain an encrypted mnemonic phrase
-	                                if (utils$1.searchPath(data, "x-ethers/version") === "0.1") {
-	                                    mnemonicCiphertext = utils$1.looseArrayify(utils$1.searchPath(data, "x-ethers/mnemonicCiphertext"));
-	                                    mnemonicIv = utils$1.looseArrayify(utils$1.searchPath(data, "x-ethers/mnemonicCounter"));
-	                                    mnemonicCounter = new aes_js_1.default.Counter(mnemonicIv);
-	                                    mnemonicAesCtr = new aes_js_1.default.ModeOfOperation.ctr(mnemonicKey, mnemonicCounter);
-	                                    path = utils$1.searchPath(data, "x-ethers/path") || lib$h.defaultPath;
-	                                    locale = utils$1.searchPath(data, "x-ethers/locale") || "en";
-	                                    entropy = lib$1.arrayify(mnemonicAesCtr.decrypt(mnemonicCiphertext));
-	                                    try {
-	                                        mnemonic = lib$h.entropyToMnemonic(entropy, locale);
-	                                        node = lib$h.HDNode.fromMnemonic(mnemonic, null, locale).derivePath(path);
-	                                        if (node.privateKey != account.privateKey) {
-	                                            throw new Error("mnemonic mismatch");
-	                                        }
-	                                        account.mnemonic = node.mnemonic;
-	                                    }
-	                                    catch (error) {
-	                                        // If we don't have the locale wordlist installed to
-	                                        // read this mnemonic, just bail and don't set the
-	                                        // mnemonic
-	                                        if (error.code !== lib.Logger.errors.INVALID_ARGUMENT || error.argument !== "wordlist") {
-	                                            throw error;
-	                                        }
-	                                    }
-	                                }
-	                                return [2 /*return*/, new KeystoreAccount(account)];
-	                            });
-	                        });
-	                    };
-	                    kdf = utils$1.searchPath(data, "crypto/kdf");
-	                    if (!(kdf && typeof (kdf) === "string")) return [3 /*break*/, 3];
-	                    throwError = function (name, value) {
-	                        return logger.throwArgumentError("invalid key-derivation function parameters", name, value);
-	                    };
-	                    if (!(kdf.toLowerCase() === "scrypt")) return [3 /*break*/, 2];
-	                    salt = utils$1.looseArrayify(utils$1.searchPath(data, "crypto/kdfparams/salt"));
-	                    N = parseInt(utils$1.searchPath(data, "crypto/kdfparams/n"));
-	                    r = parseInt(utils$1.searchPath(data, "crypto/kdfparams/r"));
-	                    p = parseInt(utils$1.searchPath(data, "crypto/kdfparams/p"));
-	                    // Check for all required parameters
-	                    if (!N || !r || !p) {
-	                        throwError("kdf", kdf);
-	                    }
-	                    // Make sure N is a power of 2
-	                    if ((N & (N - 1)) !== 0) {
-	                        throwError("N", N);
-	                    }
-	                    dkLen = parseInt(utils$1.searchPath(data, "crypto/kdfparams/dklen"));
-	                    if (dkLen !== 32) {
-	                        throwError("dklen", dkLen);
-	                    }
-	                    return [4 /*yield*/, scrypt$1.scrypt(passwordBytes, salt, N, r, p, 64, progressCallback)];
+	                    return [4 /*yield*/, _computeKdfKey(data, password, pbkdf2, scrypt$1.scrypt, progressCallback)];
 	                case 1:
 	                    key = _a.sent();
-	                    //key = arrayify(key);
-	                    return [2 /*return*/, getAccount(key)];
-	                case 2:
-	                    if (kdf.toLowerCase() === "pbkdf2") {
-	                        salt = utils$1.looseArrayify(utils$1.searchPath(data, "crypto/kdfparams/salt"));
-	                        prfFunc = null;
-	                        prf = utils$1.searchPath(data, "crypto/kdfparams/prf");
-	                        if (prf === "hmac-sha256") {
-	                            prfFunc = "sha256";
-	                        }
-	                        else if (prf === "hmac-sha512") {
-	                            prfFunc = "sha512";
-	                        }
-	                        else {
-	                            throwError("prf", prf);
-	                        }
-	                        c = parseInt(utils$1.searchPath(data, "crypto/kdfparams/c"));
-	                        dkLen = parseInt(utils$1.searchPath(data, "crypto/kdfparams/dklen"));
-	                        if (dkLen !== 32) {
-	                            throwError("dklen", dkLen);
-	                        }
-	                        key = lib$1.arrayify(browser$2.pbkdf2(passwordBytes, salt, c, dkLen, prfFunc));
-	                        return [2 /*return*/, getAccount(key)];
-	                    }
-	                    _a.label = 3;
-	                case 3: return [2 /*return*/, logger.throwArgumentError("unsupported key-derivation function", "kdf", kdf)];
+	                    return [2 /*return*/, _getAccount(data, key)];
 	            }
 	        });
 	    });
@@ -16361,8 +16893,9 @@
 
 	var keystore$1 = unwrapExports(keystore);
 	var keystore_1 = keystore.KeystoreAccount;
-	var keystore_2 = keystore.decrypt;
-	var keystore_3 = keystore.encrypt;
+	var keystore_2 = keystore.decryptSync;
+	var keystore_3 = keystore.decrypt;
+	var keystore_4 = keystore.encrypt;
 
 	var lib$i = createCommonjsModule(function (module, exports) {
 	"use strict";
@@ -16375,6 +16908,7 @@
 	exports.isKeystoreWallet = inspect.isKeystoreWallet;
 
 	exports.decryptKeystore = keystore.decrypt;
+	exports.decryptKeystoreSync = keystore.decryptSync;
 	exports.encryptKeystore = keystore.encrypt;
 	function decryptJsonWallet(json, password, progressCallback) {
 	    if (inspect.isCrowdsaleWallet(json)) {
@@ -16393,25 +16927,37 @@
 	    return Promise.reject(new Error("invalid JSON wallet"));
 	}
 	exports.decryptJsonWallet = decryptJsonWallet;
+	function decryptJsonWalletSync(json, password) {
+	    if (inspect.isCrowdsaleWallet(json)) {
+	        return crowdsale.decrypt(json, password);
+	    }
+	    if (inspect.isKeystoreWallet(json)) {
+	        return keystore.decryptSync(json, password);
+	    }
+	    throw new Error("invalid JSON wallet");
+	}
+	exports.decryptJsonWalletSync = decryptJsonWalletSync;
 	});
 
 	var index$i = unwrapExports(lib$i);
 	var lib_1$i = lib$i.decryptCrowdsale;
-	var lib_2$g = lib$i.getJsonWalletAddress;
-	var lib_3$d = lib$i.isCrowdsaleWallet;
+	var lib_2$h = lib$i.getJsonWalletAddress;
+	var lib_3$e = lib$i.isCrowdsaleWallet;
 	var lib_4$b = lib$i.isKeystoreWallet;
 	var lib_5$a = lib$i.decryptKeystore;
-	var lib_6$6 = lib$i.encryptKeystore;
-	var lib_7$5 = lib$i.decryptJsonWallet;
+	var lib_6$6 = lib$i.decryptKeystoreSync;
+	var lib_7$5 = lib$i.encryptKeystore;
+	var lib_8$4 = lib$i.decryptJsonWallet;
+	var lib_9$4 = lib$i.decryptJsonWalletSync;
 
-	var _version$A = createCommonjsModule(function (module, exports) {
+	var _version$C = createCommonjsModule(function (module, exports) {
 	"use strict";
 	Object.defineProperty(exports, "__esModule", { value: true });
-	exports.version = "wallet/5.0.0-beta.137";
+	exports.version = "wallet/5.0.0-beta.141";
 	});
 
-	var _version$B = unwrapExports(_version$A);
-	var _version_1$i = _version$A.version;
+	var _version$D = unwrapExports(_version$C);
+	var _version_1$j = _version$C.version;
 
 	var lib$j = createCommonjsModule(function (module, exports) {
 	"use strict";
@@ -16443,7 +16989,7 @@
 
 
 
-	var logger = new lib.Logger(_version$A.version);
+	var logger = new lib.Logger(_version$C.version);
 	function isAccount(value) {
 	    return (value != null && lib$1.isHexString(value.privateKey, 32) && value.address != null);
 	}
@@ -16463,7 +17009,7 @@
 	            lib$3.defineReadOnly(_this, "_signingKey", function () { return signingKey_1; });
 	            lib$3.defineReadOnly(_this, "address", lib$g.computeAddress(_this.publicKey));
 	            if (_this.address !== lib$6.getAddress(privateKey.address)) {
-	                logger.throwArgumentError("privateKey/address mismatch", "privateKey", "[REDCACTED]");
+	                logger.throwArgumentError("privateKey/address mismatch", "privateKey", "[REDACTED]");
 	            }
 	            if (hasMnemonic(privateKey)) {
 	                var srcMnemonic_1 = privateKey.mnemonic;
@@ -16475,7 +17021,7 @@
 	                var mnemonic = _this.mnemonic;
 	                var node = lib$h.HDNode.fromMnemonic(mnemonic.phrase, null, mnemonic.locale).derivePath(mnemonic.path);
 	                if (lib$g.computeAddress(node.privateKey) !== _this.address) {
-	                    logger.throwArgumentError("mnemonic/address mismatch", "privateKey", "[REDCACTED]");
+	                    logger.throwArgumentError("mnemonic/address mismatch", "privateKey", "[REDACTED]");
 	                }
 	            }
 	            else {
@@ -16571,6 +17117,9 @@
 	            return new Wallet(account);
 	        });
 	    };
+	    Wallet.fromEncryptedJsonSync = function (json, password) {
+	        return new Wallet(lib$i.decryptJsonWalletSync(json, password));
+	    };
 	    Wallet.fromMnemonic = function (mnemonic, path, wordlist) {
 	        if (!path) {
 	            path = lib$h.defaultPath;
@@ -16588,23 +17137,23 @@
 
 	var index$j = unwrapExports(lib$j);
 	var lib_1$j = lib$j.Wallet;
-	var lib_2$h = lib$j.verifyMessage;
+	var lib_2$i = lib$j.verifyMessage;
 
-	var _version$C = createCommonjsModule(function (module, exports) {
+	var _version$E = createCommonjsModule(function (module, exports) {
 	"use strict";
 	Object.defineProperty(exports, "__esModule", { value: true });
-	exports.version = "networks/5.0.0-beta.135";
+	exports.version = "networks/5.0.0-beta.137";
 	});
 
-	var _version$D = unwrapExports(_version$C);
-	var _version_1$j = _version$C.version;
+	var _version$F = unwrapExports(_version$E);
+	var _version_1$k = _version$E.version;
 
 	var lib$k = createCommonjsModule(function (module, exports) {
 	"use strict";
 	Object.defineProperty(exports, "__esModule", { value: true });
 
 
-	var logger = new lib.Logger(_version$C.version);
+	var logger = new lib.Logger(_version$E.version);
 	function ethDefaultProvider(network) {
 	    return function (providers, options) {
 	        if (options == null) {
@@ -16639,17 +17188,12 @@
 	            return null;
 	        }
 	        if (providers.FallbackProvider) {
-	            var quorum = providerList.length / 2;
+	            var quorum = 1;
 	            if (options.quorum != null) {
 	                quorum = options.quorum;
 	            }
-	            else if (quorum > 2) {
-	                if (network === "homestead") {
-	                    quorum = 2;
-	                }
-	                else {
-	                    quorum = 1;
-	                }
+	            else if (network === "homestead") {
+	                quorum = 2;
 	            }
 	            return new providers.FallbackProvider(providerList, quorum);
 	        }
@@ -16795,558 +17339,6 @@
 	var index$k = unwrapExports(lib$k);
 	var lib_1$k = lib$k.getNetwork;
 
-	var browserPonyfill = createCommonjsModule(function (module, exports) {
-	var __self__ = (function (root) {
-	function F() {
-	this.fetch = false;
-	this.DOMException = root.DOMException;
-	}
-	F.prototype = root;
-	return new F();
-	})(typeof self !== 'undefined' ? self : commonjsGlobal);
-	(function(self) {
-
-	var irrelevant = (function (exports) {
-	  var support = {
-	    searchParams: 'URLSearchParams' in self,
-	    iterable: 'Symbol' in self && 'iterator' in Symbol,
-	    blob:
-	      'FileReader' in self &&
-	      'Blob' in self &&
-	      (function() {
-	        try {
-	          new Blob();
-	          return true
-	        } catch (e) {
-	          return false
-	        }
-	      })(),
-	    formData: 'FormData' in self,
-	    arrayBuffer: 'ArrayBuffer' in self
-	  };
-
-	  function isDataView(obj) {
-	    return obj && DataView.prototype.isPrototypeOf(obj)
-	  }
-
-	  if (support.arrayBuffer) {
-	    var viewClasses = [
-	      '[object Int8Array]',
-	      '[object Uint8Array]',
-	      '[object Uint8ClampedArray]',
-	      '[object Int16Array]',
-	      '[object Uint16Array]',
-	      '[object Int32Array]',
-	      '[object Uint32Array]',
-	      '[object Float32Array]',
-	      '[object Float64Array]'
-	    ];
-
-	    var isArrayBufferView =
-	      ArrayBuffer.isView ||
-	      function(obj) {
-	        return obj && viewClasses.indexOf(Object.prototype.toString.call(obj)) > -1
-	      };
-	  }
-
-	  function normalizeName(name) {
-	    if (typeof name !== 'string') {
-	      name = String(name);
-	    }
-	    if (/[^a-z0-9\-#$%&'*+.^_`|~]/i.test(name)) {
-	      throw new TypeError('Invalid character in header field name')
-	    }
-	    return name.toLowerCase()
-	  }
-
-	  function normalizeValue(value) {
-	    if (typeof value !== 'string') {
-	      value = String(value);
-	    }
-	    return value
-	  }
-
-	  // Build a destructive iterator for the value list
-	  function iteratorFor(items) {
-	    var iterator = {
-	      next: function() {
-	        var value = items.shift();
-	        return {done: value === undefined, value: value}
-	      }
-	    };
-
-	    if (support.iterable) {
-	      iterator[Symbol.iterator] = function() {
-	        return iterator
-	      };
-	    }
-
-	    return iterator
-	  }
-
-	  function Headers(headers) {
-	    this.map = {};
-
-	    if (headers instanceof Headers) {
-	      headers.forEach(function(value, name) {
-	        this.append(name, value);
-	      }, this);
-	    } else if (Array.isArray(headers)) {
-	      headers.forEach(function(header) {
-	        this.append(header[0], header[1]);
-	      }, this);
-	    } else if (headers) {
-	      Object.getOwnPropertyNames(headers).forEach(function(name) {
-	        this.append(name, headers[name]);
-	      }, this);
-	    }
-	  }
-
-	  Headers.prototype.append = function(name, value) {
-	    name = normalizeName(name);
-	    value = normalizeValue(value);
-	    var oldValue = this.map[name];
-	    this.map[name] = oldValue ? oldValue + ', ' + value : value;
-	  };
-
-	  Headers.prototype['delete'] = function(name) {
-	    delete this.map[normalizeName(name)];
-	  };
-
-	  Headers.prototype.get = function(name) {
-	    name = normalizeName(name);
-	    return this.has(name) ? this.map[name] : null
-	  };
-
-	  Headers.prototype.has = function(name) {
-	    return this.map.hasOwnProperty(normalizeName(name))
-	  };
-
-	  Headers.prototype.set = function(name, value) {
-	    this.map[normalizeName(name)] = normalizeValue(value);
-	  };
-
-	  Headers.prototype.forEach = function(callback, thisArg) {
-	    for (var name in this.map) {
-	      if (this.map.hasOwnProperty(name)) {
-	        callback.call(thisArg, this.map[name], name, this);
-	      }
-	    }
-	  };
-
-	  Headers.prototype.keys = function() {
-	    var items = [];
-	    this.forEach(function(value, name) {
-	      items.push(name);
-	    });
-	    return iteratorFor(items)
-	  };
-
-	  Headers.prototype.values = function() {
-	    var items = [];
-	    this.forEach(function(value) {
-	      items.push(value);
-	    });
-	    return iteratorFor(items)
-	  };
-
-	  Headers.prototype.entries = function() {
-	    var items = [];
-	    this.forEach(function(value, name) {
-	      items.push([name, value]);
-	    });
-	    return iteratorFor(items)
-	  };
-
-	  if (support.iterable) {
-	    Headers.prototype[Symbol.iterator] = Headers.prototype.entries;
-	  }
-
-	  function consumed(body) {
-	    if (body.bodyUsed) {
-	      return Promise.reject(new TypeError('Already read'))
-	    }
-	    body.bodyUsed = true;
-	  }
-
-	  function fileReaderReady(reader) {
-	    return new Promise(function(resolve, reject) {
-	      reader.onload = function() {
-	        resolve(reader.result);
-	      };
-	      reader.onerror = function() {
-	        reject(reader.error);
-	      };
-	    })
-	  }
-
-	  function readBlobAsArrayBuffer(blob) {
-	    var reader = new FileReader();
-	    var promise = fileReaderReady(reader);
-	    reader.readAsArrayBuffer(blob);
-	    return promise
-	  }
-
-	  function readBlobAsText(blob) {
-	    var reader = new FileReader();
-	    var promise = fileReaderReady(reader);
-	    reader.readAsText(blob);
-	    return promise
-	  }
-
-	  function readArrayBufferAsText(buf) {
-	    var view = new Uint8Array(buf);
-	    var chars = new Array(view.length);
-
-	    for (var i = 0; i < view.length; i++) {
-	      chars[i] = String.fromCharCode(view[i]);
-	    }
-	    return chars.join('')
-	  }
-
-	  function bufferClone(buf) {
-	    if (buf.slice) {
-	      return buf.slice(0)
-	    } else {
-	      var view = new Uint8Array(buf.byteLength);
-	      view.set(new Uint8Array(buf));
-	      return view.buffer
-	    }
-	  }
-
-	  function Body() {
-	    this.bodyUsed = false;
-
-	    this._initBody = function(body) {
-	      this._bodyInit = body;
-	      if (!body) {
-	        this._bodyText = '';
-	      } else if (typeof body === 'string') {
-	        this._bodyText = body;
-	      } else if (support.blob && Blob.prototype.isPrototypeOf(body)) {
-	        this._bodyBlob = body;
-	      } else if (support.formData && FormData.prototype.isPrototypeOf(body)) {
-	        this._bodyFormData = body;
-	      } else if (support.searchParams && URLSearchParams.prototype.isPrototypeOf(body)) {
-	        this._bodyText = body.toString();
-	      } else if (support.arrayBuffer && support.blob && isDataView(body)) {
-	        this._bodyArrayBuffer = bufferClone(body.buffer);
-	        // IE 10-11 can't handle a DataView body.
-	        this._bodyInit = new Blob([this._bodyArrayBuffer]);
-	      } else if (support.arrayBuffer && (ArrayBuffer.prototype.isPrototypeOf(body) || isArrayBufferView(body))) {
-	        this._bodyArrayBuffer = bufferClone(body);
-	      } else {
-	        this._bodyText = body = Object.prototype.toString.call(body);
-	      }
-
-	      if (!this.headers.get('content-type')) {
-	        if (typeof body === 'string') {
-	          this.headers.set('content-type', 'text/plain;charset=UTF-8');
-	        } else if (this._bodyBlob && this._bodyBlob.type) {
-	          this.headers.set('content-type', this._bodyBlob.type);
-	        } else if (support.searchParams && URLSearchParams.prototype.isPrototypeOf(body)) {
-	          this.headers.set('content-type', 'application/x-www-form-urlencoded;charset=UTF-8');
-	        }
-	      }
-	    };
-
-	    if (support.blob) {
-	      this.blob = function() {
-	        var rejected = consumed(this);
-	        if (rejected) {
-	          return rejected
-	        }
-
-	        if (this._bodyBlob) {
-	          return Promise.resolve(this._bodyBlob)
-	        } else if (this._bodyArrayBuffer) {
-	          return Promise.resolve(new Blob([this._bodyArrayBuffer]))
-	        } else if (this._bodyFormData) {
-	          throw new Error('could not read FormData body as blob')
-	        } else {
-	          return Promise.resolve(new Blob([this._bodyText]))
-	        }
-	      };
-
-	      this.arrayBuffer = function() {
-	        if (this._bodyArrayBuffer) {
-	          return consumed(this) || Promise.resolve(this._bodyArrayBuffer)
-	        } else {
-	          return this.blob().then(readBlobAsArrayBuffer)
-	        }
-	      };
-	    }
-
-	    this.text = function() {
-	      var rejected = consumed(this);
-	      if (rejected) {
-	        return rejected
-	      }
-
-	      if (this._bodyBlob) {
-	        return readBlobAsText(this._bodyBlob)
-	      } else if (this._bodyArrayBuffer) {
-	        return Promise.resolve(readArrayBufferAsText(this._bodyArrayBuffer))
-	      } else if (this._bodyFormData) {
-	        throw new Error('could not read FormData body as text')
-	      } else {
-	        return Promise.resolve(this._bodyText)
-	      }
-	    };
-
-	    if (support.formData) {
-	      this.formData = function() {
-	        return this.text().then(decode)
-	      };
-	    }
-
-	    this.json = function() {
-	      return this.text().then(JSON.parse)
-	    };
-
-	    return this
-	  }
-
-	  // HTTP methods whose capitalization should be normalized
-	  var methods = ['DELETE', 'GET', 'HEAD', 'OPTIONS', 'POST', 'PUT'];
-
-	  function normalizeMethod(method) {
-	    var upcased = method.toUpperCase();
-	    return methods.indexOf(upcased) > -1 ? upcased : method
-	  }
-
-	  function Request(input, options) {
-	    options = options || {};
-	    var body = options.body;
-
-	    if (input instanceof Request) {
-	      if (input.bodyUsed) {
-	        throw new TypeError('Already read')
-	      }
-	      this.url = input.url;
-	      this.credentials = input.credentials;
-	      if (!options.headers) {
-	        this.headers = new Headers(input.headers);
-	      }
-	      this.method = input.method;
-	      this.mode = input.mode;
-	      this.signal = input.signal;
-	      if (!body && input._bodyInit != null) {
-	        body = input._bodyInit;
-	        input.bodyUsed = true;
-	      }
-	    } else {
-	      this.url = String(input);
-	    }
-
-	    this.credentials = options.credentials || this.credentials || 'same-origin';
-	    if (options.headers || !this.headers) {
-	      this.headers = new Headers(options.headers);
-	    }
-	    this.method = normalizeMethod(options.method || this.method || 'GET');
-	    this.mode = options.mode || this.mode || null;
-	    this.signal = options.signal || this.signal;
-	    this.referrer = null;
-
-	    if ((this.method === 'GET' || this.method === 'HEAD') && body) {
-	      throw new TypeError('Body not allowed for GET or HEAD requests')
-	    }
-	    this._initBody(body);
-	  }
-
-	  Request.prototype.clone = function() {
-	    return new Request(this, {body: this._bodyInit})
-	  };
-
-	  function decode(body) {
-	    var form = new FormData();
-	    body
-	      .trim()
-	      .split('&')
-	      .forEach(function(bytes) {
-	        if (bytes) {
-	          var split = bytes.split('=');
-	          var name = split.shift().replace(/\+/g, ' ');
-	          var value = split.join('=').replace(/\+/g, ' ');
-	          form.append(decodeURIComponent(name), decodeURIComponent(value));
-	        }
-	      });
-	    return form
-	  }
-
-	  function parseHeaders(rawHeaders) {
-	    var headers = new Headers();
-	    // Replace instances of \r\n and \n followed by at least one space or horizontal tab with a space
-	    // https://tools.ietf.org/html/rfc7230#section-3.2
-	    var preProcessedHeaders = rawHeaders.replace(/\r?\n[\t ]+/g, ' ');
-	    preProcessedHeaders.split(/\r?\n/).forEach(function(line) {
-	      var parts = line.split(':');
-	      var key = parts.shift().trim();
-	      if (key) {
-	        var value = parts.join(':').trim();
-	        headers.append(key, value);
-	      }
-	    });
-	    return headers
-	  }
-
-	  Body.call(Request.prototype);
-
-	  function Response(bodyInit, options) {
-	    if (!options) {
-	      options = {};
-	    }
-
-	    this.type = 'default';
-	    this.status = options.status === undefined ? 200 : options.status;
-	    this.ok = this.status >= 200 && this.status < 300;
-	    this.statusText = 'statusText' in options ? options.statusText : 'OK';
-	    this.headers = new Headers(options.headers);
-	    this.url = options.url || '';
-	    this._initBody(bodyInit);
-	  }
-
-	  Body.call(Response.prototype);
-
-	  Response.prototype.clone = function() {
-	    return new Response(this._bodyInit, {
-	      status: this.status,
-	      statusText: this.statusText,
-	      headers: new Headers(this.headers),
-	      url: this.url
-	    })
-	  };
-
-	  Response.error = function() {
-	    var response = new Response(null, {status: 0, statusText: ''});
-	    response.type = 'error';
-	    return response
-	  };
-
-	  var redirectStatuses = [301, 302, 303, 307, 308];
-
-	  Response.redirect = function(url, status) {
-	    if (redirectStatuses.indexOf(status) === -1) {
-	      throw new RangeError('Invalid status code')
-	    }
-
-	    return new Response(null, {status: status, headers: {location: url}})
-	  };
-
-	  exports.DOMException = self.DOMException;
-	  try {
-	    new exports.DOMException();
-	  } catch (err) {
-	    exports.DOMException = function(message, name) {
-	      this.message = message;
-	      this.name = name;
-	      var error = Error(message);
-	      this.stack = error.stack;
-	    };
-	    exports.DOMException.prototype = Object.create(Error.prototype);
-	    exports.DOMException.prototype.constructor = exports.DOMException;
-	  }
-
-	  function fetch(input, init) {
-	    return new Promise(function(resolve, reject) {
-	      var request = new Request(input, init);
-
-	      if (request.signal && request.signal.aborted) {
-	        return reject(new exports.DOMException('Aborted', 'AbortError'))
-	      }
-
-	      var xhr = new XMLHttpRequest();
-
-	      function abortXhr() {
-	        xhr.abort();
-	      }
-
-	      xhr.onload = function() {
-	        var options = {
-	          status: xhr.status,
-	          statusText: xhr.statusText,
-	          headers: parseHeaders(xhr.getAllResponseHeaders() || '')
-	        };
-	        options.url = 'responseURL' in xhr ? xhr.responseURL : options.headers.get('X-Request-URL');
-	        var body = 'response' in xhr ? xhr.response : xhr.responseText;
-	        resolve(new Response(body, options));
-	      };
-
-	      xhr.onerror = function() {
-	        reject(new TypeError('Network request failed'));
-	      };
-
-	      xhr.ontimeout = function() {
-	        reject(new TypeError('Network request failed'));
-	      };
-
-	      xhr.onabort = function() {
-	        reject(new exports.DOMException('Aborted', 'AbortError'));
-	      };
-
-	      xhr.open(request.method, request.url, true);
-
-	      if (request.credentials === 'include') {
-	        xhr.withCredentials = true;
-	      } else if (request.credentials === 'omit') {
-	        xhr.withCredentials = false;
-	      }
-
-	      if ('responseType' in xhr && support.blob) {
-	        xhr.responseType = 'blob';
-	      }
-
-	      request.headers.forEach(function(value, name) {
-	        xhr.setRequestHeader(name, value);
-	      });
-
-	      if (request.signal) {
-	        request.signal.addEventListener('abort', abortXhr);
-
-	        xhr.onreadystatechange = function() {
-	          // DONE (success or failure)
-	          if (xhr.readyState === 4) {
-	            request.signal.removeEventListener('abort', abortXhr);
-	          }
-	        };
-	      }
-
-	      xhr.send(typeof request._bodyInit === 'undefined' ? null : request._bodyInit);
-	    })
-	  }
-
-	  fetch.polyfill = true;
-
-	  if (!self.fetch) {
-	    self.fetch = fetch;
-	    self.Headers = Headers;
-	    self.Request = Request;
-	    self.Response = Response;
-	  }
-
-	  exports.Headers = Headers;
-	  exports.Request = Request;
-	  exports.Response = Response;
-	  exports.fetch = fetch;
-
-	  return exports;
-
-	}({}));
-	})(__self__);
-	delete __self__.fetch.polyfill;
-	exports = __self__.fetch; // To enable: import fetch from 'cross-fetch'
-	exports.default = __self__.fetch; // For TypeScript consumers without esModuleInterop.
-	exports.fetch = __self__.fetch; // To enable: import {fetch} from 'cross-fetch'
-	exports.Headers = __self__.Headers;
-	exports.Request = __self__.Request;
-	exports.Response = __self__.Response;
-	module.exports = exports;
-	});
-	var browserPonyfill_1 = browserPonyfill.fetch;
-	var browserPonyfill_2 = browserPonyfill.Headers;
-	var browserPonyfill_3 = browserPonyfill.Request;
-	var browserPonyfill_4 = browserPonyfill.Response;
-
 	var browser$8 = createCommonjsModule(function (module, exports) {
 	"use strict";
 	Object.defineProperty(exports, "__esModule", { value: true });
@@ -17375,14 +17367,105 @@
 	var browser_1$4 = browser$8.decode;
 	var browser_2$3 = browser$8.encode;
 
-	var _version$E = createCommonjsModule(function (module, exports) {
+	var _version$G = createCommonjsModule(function (module, exports) {
 	"use strict";
 	Object.defineProperty(exports, "__esModule", { value: true });
-	exports.version = "web/5.0.0-beta.136";
+	exports.version = "web/5.0.0-beta.139";
 	});
 
-	var _version$F = unwrapExports(_version$E);
-	var _version_1$k = _version$E.version;
+	var _version$H = unwrapExports(_version$G);
+	var _version_1$l = _version$G.version;
+
+	var browserGeturl = createCommonjsModule(function (module, exports) {
+	"use strict";
+	var __awaiter = (commonjsGlobal && commonjsGlobal.__awaiter) || function (thisArg, _arguments, P, generator) {
+	    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+	    return new (P || (P = Promise))(function (resolve, reject) {
+	        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+	        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+	        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+	        step((generator = generator.apply(thisArg, _arguments || [])).next());
+	    });
+	};
+	var __generator = (commonjsGlobal && commonjsGlobal.__generator) || function (thisArg, body) {
+	    var _ = { label: 0, sent: function() { if (t[0] & 1) throw t[1]; return t[1]; }, trys: [], ops: [] }, f, y, t, g;
+	    return g = { next: verb(0), "throw": verb(1), "return": verb(2) }, typeof Symbol === "function" && (g[Symbol.iterator] = function() { return this; }), g;
+	    function verb(n) { return function (v) { return step([n, v]); }; }
+	    function step(op) {
+	        if (f) throw new TypeError("Generator is already executing.");
+	        while (_) try {
+	            if (f = 1, y && (t = op[0] & 2 ? y["return"] : op[0] ? y["throw"] || ((t = y["return"]) && t.call(y), 0) : y.next) && !(t = t.call(y, op[1])).done) return t;
+	            if (y = 0, t) op = [op[0] & 2, t.value];
+	            switch (op[0]) {
+	                case 0: case 1: t = op; break;
+	                case 4: _.label++; return { value: op[1], done: false };
+	                case 5: _.label++; y = op[1]; op = [0]; continue;
+	                case 7: op = _.ops.pop(); _.trys.pop(); continue;
+	                default:
+	                    if (!(t = _.trys, t = t.length > 0 && t[t.length - 1]) && (op[0] === 6 || op[0] === 2)) { _ = 0; continue; }
+	                    if (op[0] === 3 && (!t || (op[1] > t[0] && op[1] < t[3]))) { _.label = op[1]; break; }
+	                    if (op[0] === 6 && _.label < t[1]) { _.label = t[1]; t = op; break; }
+	                    if (t && _.label < t[2]) { _.label = t[2]; _.ops.push(op); break; }
+	                    if (t[2]) _.ops.pop();
+	                    _.trys.pop(); continue;
+	            }
+	            op = body.call(thisArg, _);
+	        } catch (e) { op = [6, e]; y = 0; } finally { f = t = 0; }
+	        if (op[0] & 5) throw op[1]; return { value: op[0] ? op[1] : void 0, done: true };
+	    }
+	};
+	Object.defineProperty(exports, "__esModule", { value: true });
+	function getUrl(href, options) {
+	    return __awaiter(this, void 0, void 0, function () {
+	        var request, response, body, headers;
+	        return __generator(this, function (_a) {
+	            switch (_a.label) {
+	                case 0:
+	                    if (options == null) {
+	                        options = {};
+	                    }
+	                    request = {
+	                        method: (options.method || "GET"),
+	                        headers: (options.headers || {}),
+	                        body: (options.body || undefined),
+	                        mode: "cors",
+	                        cache: "no-cache",
+	                        credentials: "same-origin",
+	                        redirect: "follow",
+	                        referrer: "client",
+	                    };
+	                    return [4 /*yield*/, fetch(href, request)];
+	                case 1:
+	                    response = _a.sent();
+	                    return [4 /*yield*/, response.text()];
+	                case 2:
+	                    body = _a.sent();
+	                    headers = {};
+	                    if (response.headers.forEach) {
+	                        response.headers.forEach(function (value, key) {
+	                            headers[key.toLowerCase()] = value;
+	                        });
+	                    }
+	                    else {
+	                        ((response.headers).keys)().forEach(function (key) {
+	                            headers[key.toLowerCase()] = response.headers.get(key);
+	                        });
+	                    }
+	                    return [2 /*return*/, {
+	                            headers: headers,
+	                            statusCode: response.status,
+	                            statusMessage: response.statusText,
+	                            body: body,
+	                        }];
+	            }
+	        });
+	    });
+	}
+	exports.getUrl = getUrl;
+	});
+
+	var browserGeturl$1 = unwrapExports(browserGeturl);
+	var browserGeturl_1 = browserGeturl.getUrl;
 
 	var lib$l = createCommonjsModule(function (module, exports) {
 	"use strict";
@@ -17422,46 +17505,20 @@
 	        if (op[0] & 5) throw op[1]; return { value: op[0] ? op[1] : void 0, done: true };
 	    }
 	};
-	var __importDefault = (commonjsGlobal && commonjsGlobal.__importDefault) || function (mod) {
-	    return (mod && mod.__esModule) ? mod : { "default": mod };
-	};
 	Object.defineProperty(exports, "__esModule", { value: true });
-	var cross_fetch_1 = __importDefault(browserPonyfill);
 
 
 
 
 
-	var logger = new lib.Logger(_version$E.version);
-	function getResponse(response) {
-	    var headers = {};
-	    if (response.headers.forEach) {
-	        response.headers.forEach(function (value, key) {
-	            headers[key.toLowerCase()] = value;
-	        });
-	    }
-	    else {
-	        ((response.headers).keys)().forEach(function (key) {
-	            headers[key.toLowerCase()] = response.headers.get(key);
-	        });
-	    }
-	    return {
-	        statusCode: response.status,
-	        status: response.statusText,
-	        headers: headers
-	    };
-	}
+	var logger = new lib.Logger(_version$G.version);
+
 	function fetchJson(connection, json, processFunc) {
 	    var headers = {};
 	    var url = null;
 	    // @TODO: Allow ConnectionInfo to override some of these values
 	    var options = {
 	        method: "GET",
-	        mode: "cors",
-	        cache: "no-cache",
-	        credentials: "same-origin",
-	        redirect: "follow",
-	        referrer: "client",
 	    };
 	    var allow304 = false;
 	    var timeout = 2 * 60 * 1000;
@@ -17530,47 +17587,42 @@
 	    })();
 	    var runningFetch = (function () {
 	        return __awaiter(this, void 0, void 0, function () {
-	            var response, body, error_1, json, error_2;
+	            var response, error_1, body, json, error_2;
 	            return __generator(this, function (_a) {
 	                switch (_a.label) {
 	                    case 0:
 	                        response = null;
-	                        body = null;
 	                        _a.label = 1;
 	                    case 1:
-	                        if (!true) return [3 /*break*/, 7];
-	                        _a.label = 2;
+	                        _a.trys.push([1, 3, , 4]);
+	                        return [4 /*yield*/, browserGeturl.getUrl(url, options)];
 	                    case 2:
-	                        _a.trys.push([2, 4, , 5]);
-	                        return [4 /*yield*/, cross_fetch_1.default(url, options)];
-	                    case 3:
 	                        response = _a.sent();
-	                        return [3 /*break*/, 5];
-	                    case 4:
+	                        return [3 /*break*/, 4];
+	                    case 3:
 	                        error_1 = _a.sent();
-	                        console.log(error_1);
-	                        return [3 /*break*/, 5];
-	                    case 5: return [4 /*yield*/, response.text()];
-	                    case 6:
-	                        body = _a.sent();
-	                        if (allow304 && response.status === 304) {
-	                            body = null;
-	                            return [3 /*break*/, 7];
-	                        }
-	                        else if (!response.ok) {
-	                            runningTimeout.cancel();
-	                            logger.throwError("bad response", lib.Logger.errors.SERVER_ERROR, {
-	                                status: response.status,
-	                                body: body,
-	                                type: response.type,
-	                                url: response.url
+	                        response = error_1.response;
+	                        if (response == null) {
+	                            logger.throwError("missing response", lib.Logger.errors.SERVER_ERROR, {
+	                                serverError: error_1,
+	                                url: url
 	                            });
 	                        }
-	                        else {
-	                            return [3 /*break*/, 7];
+	                        return [3 /*break*/, 4];
+	                    case 4:
+	                        body = response.body;
+	                        if (allow304 && response.statusCode === 304) {
+	                            body = null;
 	                        }
-	                        return [3 /*break*/, 1];
-	                    case 7:
+	                        else if (response.statusCode < 200 || response.statusCode >= 300) {
+	                            runningTimeout.cancel();
+	                            logger.throwError("bad response", lib.Logger.errors.SERVER_ERROR, {
+	                                status: response.statusCode,
+	                                headers: response.headers,
+	                                body: body,
+	                                url: url
+	                            });
+	                        }
 	                        runningTimeout.cancel();
 	                        json = null;
 	                        if (body != null) {
@@ -17585,22 +17637,22 @@
 	                                });
 	                            }
 	                        }
-	                        if (!processFunc) return [3 /*break*/, 11];
-	                        _a.label = 8;
-	                    case 8:
-	                        _a.trys.push([8, 10, , 11]);
-	                        return [4 /*yield*/, processFunc(json, getResponse(response))];
-	                    case 9:
+	                        if (!processFunc) return [3 /*break*/, 8];
+	                        _a.label = 5;
+	                    case 5:
+	                        _a.trys.push([5, 7, , 8]);
+	                        return [4 /*yield*/, processFunc(json, response)];
+	                    case 6:
 	                        json = _a.sent();
-	                        return [3 /*break*/, 11];
-	                    case 10:
+	                        return [3 /*break*/, 8];
+	                    case 7:
 	                        error_2 = _a.sent();
 	                        logger.throwError("processing response error", lib.Logger.errors.SERVER_ERROR, {
 	                            body: json,
 	                            error: error_2
 	                        });
-	                        return [3 /*break*/, 11];
-	                    case 11: return [2 /*return*/, json];
+	                        return [3 /*break*/, 8];
+	                    case 8: return [2 /*return*/, json];
 	                }
 	            });
 	        });
@@ -17653,6 +17705,9 @@
 	                        resolve(result);
 	                    }
 	                }
+	                else if (options.oncePoll) {
+	                    options.oncePoll.once("poll", check);
+	                }
 	                else if (options.onceBlock) {
 	                    options.onceBlock.once("block", check);
 	                    // Otherwise, exponential back-off (up to 10s) our next request
@@ -17689,16 +17744,16 @@
 
 	var index$l = unwrapExports(lib$l);
 	var lib_1$l = lib$l.fetchJson;
-	var lib_2$i = lib$l.poll;
+	var lib_2$j = lib$l.poll;
 
-	var _version$G = createCommonjsModule(function (module, exports) {
+	var _version$I = createCommonjsModule(function (module, exports) {
 	"use strict";
 	Object.defineProperty(exports, "__esModule", { value: true });
-	exports.version = "providers/5.0.0-beta.154";
+	exports.version = "providers/5.0.0-beta.166";
 	});
 
-	var _version$H = unwrapExports(_version$G);
-	var _version_1$l = _version$G.version;
+	var _version$J = unwrapExports(_version$I);
+	var _version_1$m = _version$I.version;
 
 	var formatter = createCommonjsModule(function (module, exports) {
 	"use strict";
@@ -17711,7 +17766,7 @@
 
 
 
-	var logger = new lib.Logger(_version$G.version);
+	var logger = new lib.Logger(_version$I.version);
 	var Formatter = /** @class */ (function () {
 	    function Formatter() {
 	        var _newTarget = this.constructor;
@@ -17758,7 +17813,6 @@
 	            data: Formatter.allowNull(strictData),
 	        };
 	        formats.receiptLog = {
-	            transactionLogIndex: Formatter.allowNull(number),
 	            transactionIndex: number,
 	            blockNumber: number,
 	            transactionHash: hash,
@@ -17842,7 +17896,7 @@
 	                return false;
 	            }
 	        }
-	        throw new Error("invaid boolean - " + value);
+	        throw new Error("invalid boolean - " + value);
 	    };
 	    Formatter.prototype.hex = function (value, strict) {
 	        if (typeof (value) === "string") {
@@ -18017,14 +18071,7 @@
 	        return Formatter.check(this.formats.receiptLog, value);
 	    };
 	    Formatter.prototype.receipt = function (value) {
-	        //let status = transactionReceipt.status;
-	        //let root = transactionReceipt.root;
 	        var result = Formatter.check(this.formats.receipt, value);
-	        result.logs.forEach(function (entry, index) {
-	            if (entry.transactionLogIndex == null) {
-	                entry.transactionLogIndex = index;
-	            }
-	        });
 	        if (value.status != null) {
 	            result.byzantium = true;
 	        }
@@ -18164,7 +18211,7 @@
 
 
 
-	var logger = new lib.Logger(_version$G.version);
+	var logger = new lib.Logger(_version$I.version);
 
 	//////////////////////////////
 	// Event Serializeing
@@ -18180,7 +18227,7 @@
 	function serializeTopics(topics) {
 	    // Remove trailing null AND-topics; they are redundant
 	    topics = topics.slice();
-	    while (topics[topics.length - 1] == null) {
+	    while (topics.length > 0 && topics[topics.length - 1] == null) {
 	        topics.pop();
 	    }
 	    return topics.map(function (topic) {
@@ -18201,10 +18248,17 @@
 	    }).join("&");
 	}
 	function deserializeTopics(data) {
+	    if (data === "") {
+	        return [];
+	    }
 	    return data.split(/&/g).map(function (topic) {
-	        return topic.split("|").map(function (topic) {
+	        if (topic === "") {
+	            return [];
+	        }
+	        var comps = topic.split("|").map(function (topic) {
 	            return ((topic === "null") ? null : topic);
 	        });
+	        return ((comps.length === 1) ? comps[0] : comps);
 	    });
 	}
 	function getEventTag(eventName) {
@@ -18239,6 +18293,7 @@
 	/**
 	 *  EventType
 	 *   - "block"
+	 *   - "poll"
 	 *   - "pending"
 	 *   - "error"
 	 *   - filter
@@ -18251,15 +18306,76 @@
 	        lib$3.defineReadOnly(this, "listener", listener);
 	        lib$3.defineReadOnly(this, "once", once);
 	    }
+	    Object.defineProperty(Event.prototype, "event", {
+	        get: function () {
+	            switch (this.type) {
+	                case "tx":
+	                    return this.hash;
+	                case "filter":
+	                    return this.filter;
+	            }
+	            return this.tag;
+	        },
+	        enumerable: true,
+	        configurable: true
+	    });
+	    Object.defineProperty(Event.prototype, "type", {
+	        get: function () {
+	            return this.tag.split(":")[0];
+	        },
+	        enumerable: true,
+	        configurable: true
+	    });
+	    Object.defineProperty(Event.prototype, "hash", {
+	        get: function () {
+	            var comps = this.tag.split(":");
+	            if (comps[0] !== "tx") {
+	                return null;
+	            }
+	            return comps[1];
+	        },
+	        enumerable: true,
+	        configurable: true
+	    });
+	    Object.defineProperty(Event.prototype, "filter", {
+	        get: function () {
+	            var comps = this.tag.split(":");
+	            if (comps[0] !== "filter") {
+	                return null;
+	            }
+	            var address = comps[1];
+	            var topics = deserializeTopics(comps[2]);
+	            var filter = {};
+	            if (topics.length > 0) {
+	                filter.topics = topics;
+	            }
+	            if (address && address !== "*") {
+	                filter.address = address;
+	            }
+	            return filter;
+	        },
+	        enumerable: true,
+	        configurable: true
+	    });
 	    Event.prototype.pollable = function () {
-	        return (this.tag.indexOf(":") >= 0 || this.tag === "block" || this.tag === "pending");
+	        return (this.tag.indexOf(":") >= 0 || this.tag === "block" || this.tag === "pending" || this.tag === "poll");
 	    };
 	    return Event;
 	}());
+	exports.Event = Event;
 	var defaultFormatter = null;
 	var nextPollId = 1;
 	var BaseProvider = /** @class */ (function (_super) {
 	    __extends(BaseProvider, _super);
+	    /**
+	     *  ready
+	     *
+	     *  A Promise<Network> that resolves only once the provider is ready.
+	     *
+	     *  Sub-classes that call the super with a network without a chainId
+	     *  MUST set this. Standard named networks have a known chainId.
+	     *
+	     */
 	    function BaseProvider(network) {
 	        var _newTarget = this.constructor;
 	        var _this = this;
@@ -18267,18 +18383,14 @@
 	        _this = _super.call(this) || this;
 	        _this.formatter = _newTarget.getFormatter();
 	        if (network instanceof Promise) {
-	            lib$3.defineReadOnly(_this, "ready", network.then(function (network) {
-	                lib$3.defineReadOnly(_this, "_network", network);
-	                return network;
-	            }));
+	            _this._networkPromise = network;
 	            // Squash any "unhandled promise" errors; that do not need to be handled
-	            _this.ready.catch(function (error) { });
+	            network.catch(function (error) { });
 	        }
 	        else {
 	            var knownNetwork = lib$3.getStatic((_newTarget), "getNetwork")(network);
 	            if (knownNetwork) {
 	                lib$3.defineReadOnly(_this, "_network", knownNetwork);
-	                lib$3.defineReadOnly(_this, "ready", Promise.resolve(_this._network));
 	            }
 	            else {
 	                logger.throwArgumentError("invalid network", "network", network);
@@ -18293,6 +18405,60 @@
 	        _this._fastQueryDate = 0;
 	        return _this;
 	    }
+	    BaseProvider.prototype._ready = function () {
+	        return __awaiter(this, void 0, void 0, function () {
+	            var network, error_1;
+	            return __generator(this, function (_a) {
+	                switch (_a.label) {
+	                    case 0:
+	                        if (!(this._network == null)) return [3 /*break*/, 7];
+	                        network = null;
+	                        if (!this._networkPromise) return [3 /*break*/, 4];
+	                        _a.label = 1;
+	                    case 1:
+	                        _a.trys.push([1, 3, , 4]);
+	                        return [4 /*yield*/, this._networkPromise];
+	                    case 2:
+	                        network = _a.sent();
+	                        return [3 /*break*/, 4];
+	                    case 3:
+	                        error_1 = _a.sent();
+	                        return [3 /*break*/, 4];
+	                    case 4:
+	                        if (!(network == null)) return [3 /*break*/, 6];
+	                        return [4 /*yield*/, this.detectNetwork()];
+	                    case 5:
+	                        network = _a.sent();
+	                        _a.label = 6;
+	                    case 6:
+	                        // This should never happen; every Provider sub-class should have
+	                        // suggested a network by here (or thrown).
+	                        if (!network) {
+	                            logger.throwError("no network detected", lib.Logger.errors.UNKNOWN_ERROR, {});
+	                        }
+	                        lib$3.defineReadOnly(this, "_network", network);
+	                        _a.label = 7;
+	                    case 7: return [2 /*return*/, this._network];
+	                }
+	            });
+	        });
+	    };
+	    Object.defineProperty(BaseProvider.prototype, "ready", {
+	        get: function () {
+	            return this._ready();
+	        },
+	        enumerable: true,
+	        configurable: true
+	    });
+	    BaseProvider.prototype.detectNetwork = function () {
+	        return __awaiter(this, void 0, void 0, function () {
+	            return __generator(this, function (_a) {
+	                return [2 /*return*/, logger.throwError("provider does not support network detection", lib.Logger.errors.UNSUPPORTED_OPERATION, {
+	                        operation: "provider.detectNetwork"
+	                    })];
+	            });
+	        });
+	    };
 	    BaseProvider.getFormatter = function () {
 	        if (defaultFormatter == null) {
 	            defaultFormatter = new formatter.Formatter();
@@ -18352,8 +18518,11 @@
 	                    case 1:
 	                        blockNumber = _a.sent();
 	                        this._setFastBlockNumber(blockNumber);
+	                        // Emit a poll event after we have the latest (fast) block number
+	                        this.emit("poll", pollId, blockNumber);
 	                        // If the block has not changed, meh.
 	                        if (blockNumber === this._lastBlockNumber) {
+	                            this.emit("didPoll", pollId);
 	                            return [2 /*return*/];
 	                        }
 	                        // First polling cycle, trigger a "block" events
@@ -18393,10 +18562,9 @@
 	                        }
 	                        // Find all transaction hashes we are waiting on
 	                        this._events.forEach(function (event) {
-	                            var comps = event.tag.split(":");
-	                            switch (comps[0]) {
+	                            switch (event.type) {
 	                                case "tx": {
-	                                    var hash_2 = comps[1];
+	                                    var hash_2 = event.hash;
 	                                    var runner = _this.getTransactionReceipt(hash_2).then(function (receipt) {
 	                                        if (!receipt || receipt.blockNumber == null) {
 	                                            return null;
@@ -18409,16 +18577,9 @@
 	                                    break;
 	                                }
 	                                case "filter": {
-	                                    var topics = deserializeTopics(comps[2]);
-	                                    var filter_1 = {
-	                                        address: comps[1],
-	                                        fromBlock: _this._lastBlockNumber + 1,
-	                                        toBlock: blockNumber,
-	                                        topics: topics
-	                                    };
-	                                    if (!filter_1.address) {
-	                                        delete filter_1.address;
-	                                    }
+	                                    var filter_1 = event.filter;
+	                                    filter_1.fromBlock = _this._lastBlockNumber + 1;
+	                                    filter_1.toBlock = blockNumber;
 	                                    var runner = _this.getLogs(filter_1).then(function (logs) {
 	                                        if (logs.length === 0) {
 	                                            return;
@@ -18428,7 +18589,6 @@
 	                                            _this._emitted["t:" + log.transactionHash] = log.blockNumber;
 	                                            _this.emit(filter_1, log);
 	                                        });
-	                                        return null;
 	                                    }).catch(function (error) { _this.emit("error", error); });
 	                                    runners.push(runner);
 	                                    break;
@@ -18462,7 +18622,11 @@
 	    };
 	    Object.defineProperty(BaseProvider.prototype, "blockNumber", {
 	        get: function () {
-	            return this._fastBlockNumber;
+	            var _this = this;
+	            this._getInternalBlockNumber(100 + this.pollingInterval / 2).then(function (blockNumber) {
+	                _this._setFastBlockNumber(blockNumber);
+	            });
+	            return (this._fastBlockNumber != null) ? this._fastBlockNumber : -1;
 	        },
 	        enumerable: true,
 	        configurable: true
@@ -18473,16 +18637,29 @@
 	        },
 	        set: function (value) {
 	            var _this = this;
-	            setTimeout(function () {
-	                if (value && !_this._poller) {
-	                    _this._poller = setInterval(_this.poll.bind(_this), _this.pollingInterval);
-	                    _this.poll();
+	            if (value && !this._poller) {
+	                this._poller = setInterval(this.poll.bind(this), this.pollingInterval);
+	                if (!this._bootstrapPoll) {
+	                    this._bootstrapPoll = setTimeout(function () {
+	                        _this.poll();
+	                        // We block additional polls until the polling interval
+	                        // is done, to prevent overwhelming the poll function
+	                        _this._bootstrapPoll = setTimeout(function () {
+	                            // If polling was disabled, something may require a poke
+	                            // since starting the bootstrap poll and it was disabled
+	                            if (!_this._poller) {
+	                                _this.poll();
+	                            }
+	                            // Clear out the bootstrap so we can do another
+	                            _this._bootstrapPoll = null;
+	                        }, _this.pollingInterval);
+	                    }, 0);
 	                }
-	                else if (!value && _this._poller) {
-	                    clearInterval(_this._poller);
-	                    _this._poller = null;
-	                }
-	            }, 0);
+	            }
+	            else if (!value && this._poller) {
+	                clearInterval(this._poller);
+	                this._poller = null;
+	            }
 	        },
 	        enumerable: true,
 	        configurable: true
@@ -18739,7 +18916,7 @@
 	    };
 	    BaseProvider.prototype.sendTransaction = function (signedTransaction) {
 	        return __awaiter(this, void 0, void 0, function () {
-	            var hexTx, tx, hash, error_1;
+	            var hexTx, tx, hash, error_2;
 	            return __generator(this, function (_a) {
 	                switch (_a.label) {
 	                    case 0: return [4 /*yield*/, this.ready];
@@ -18757,10 +18934,10 @@
 	                        hash = _a.sent();
 	                        return [2 /*return*/, this._wrapTransaction(tx, hash)];
 	                    case 5:
-	                        error_1 = _a.sent();
-	                        error_1.transaction = tx;
-	                        error_1.transactionHash = tx.hash;
-	                        throw error_1;
+	                        error_2 = _a.sent();
+	                        error_2.transaction = tx;
+	                        error_2.transactionHash = tx.hash;
+	                        throw error_2;
 	                    case 6: return [2 /*return*/];
 	                }
 	            });
@@ -18831,7 +19008,7 @@
 	                            result[key] = _this._getBlockTag(filter[key]);
 	                        });
 	                        _b = (_a = this.formatter).filter;
-	                        return [4 /*yield*/, lib$3.resolveProperties(filter)];
+	                        return [4 /*yield*/, lib$3.resolveProperties(result)];
 	                    case 3: return [2 /*return*/, _b.apply(_a, [_c.sent()])];
 	                }
 	            });
@@ -18898,7 +19075,7 @@
 	    };
 	    BaseProvider.prototype._getBlock = function (blockHashOrBlockTag, includeTransactions) {
 	        return __awaiter(this, void 0, void 0, function () {
-	            var blockNumber, params, _a, _b, _c, error_2;
+	            var blockNumber, params, _a, _b, _c, error_3;
 	            var _this = this;
 	            return __generator(this, function (_d) {
 	                switch (_d.label) {
@@ -18930,7 +19107,7 @@
 	                        }
 	                        return [3 /*break*/, 7];
 	                    case 6:
-	                        error_2 = _d.sent();
+	                        error_3 = _d.sent();
 	                        logger.throwArgumentError("invalid block hash or block tag", "blockHashOrBlockTag", blockHashOrBlockTag);
 	                        return [3 /*break*/, 7];
 	                    case 7: return [2 /*return*/, lib$l.poll(function () { return __awaiter(_this, void 0, void 0, function () {
@@ -19219,6 +19396,9 @@
 	                                throw error;
 	                            }
 	                        }
+	                        if (typeof (name) !== "string") {
+	                            logger.throwArgumentError("invalid ENS name", "name", name);
+	                        }
 	                        return [4 /*yield*/, this._getResolver(name)];
 	                    case 3:
 	                        resolverAddress = _c.sent();
@@ -19293,22 +19473,16 @@
 	    BaseProvider.prototype.perform = function (method, params) {
 	        return logger.throwError(method + " not implemented", lib.Logger.errors.NOT_IMPLEMENTED, { operation: method });
 	    };
-	    BaseProvider.prototype._startPending = function () {
-	        console.log("WARNING: this provider does not support pending events");
+	    BaseProvider.prototype._startEvent = function (event) {
+	        this.polling = (this._events.filter(function (e) { return e.pollable(); }).length > 0);
 	    };
-	    BaseProvider.prototype._stopPending = function () {
-	    };
-	    // Returns true if there are events that still require polling
-	    BaseProvider.prototype._checkPolling = function () {
+	    BaseProvider.prototype._stopEvent = function (event) {
 	        this.polling = (this._events.filter(function (e) { return e.pollable(); }).length > 0);
 	    };
 	    BaseProvider.prototype._addEventListener = function (eventName, listener, once) {
-	        this._events.push(new Event(getEventTag(eventName), listener, once));
-	        if (eventName === "pending") {
-	            this._startPending();
-	        }
-	        // Do we still now have any events that require polling?
-	        this._checkPolling();
+	        var event = new Event(getEventTag(eventName), listener, once);
+	        this._events.push(event);
+	        this._startEvent(event);
 	        return this;
 	    };
 	    BaseProvider.prototype.on = function (eventName, listener) {
@@ -19324,6 +19498,7 @@
 	            args[_i - 1] = arguments[_i];
 	        }
 	        var result = false;
+	        var stopped = [];
 	        var eventTag = getEventTag(eventName);
 	        this._events = this._events.filter(function (event) {
 	            if (event.tag !== eventTag) {
@@ -19333,10 +19508,13 @@
 	                event.listener.apply(_this, args);
 	            }, 0);
 	            result = true;
-	            return !(event.once);
+	            if (event.once) {
+	                stopped.push(event);
+	                return false;
+	            }
+	            return true;
 	        });
-	        // Do we still have any events that require polling? ("once" events remove themselves)
-	        this._checkPolling();
+	        stopped.forEach(function (event) { _this._stopEvent(event); });
 	        return result;
 	    };
 	    BaseProvider.prototype.listenerCount = function (eventName) {
@@ -19358,9 +19536,11 @@
 	            .map(function (event) { return event.listener; });
 	    };
 	    BaseProvider.prototype.off = function (eventName, listener) {
+	        var _this = this;
 	        if (listener == null) {
 	            return this.removeAllListeners(eventName);
 	        }
+	        var stopped = [];
 	        var found = false;
 	        var eventTag = getEventTag(eventName);
 	        this._events = this._events.filter(function (event) {
@@ -19371,31 +19551,30 @@
 	                return true;
 	            }
 	            found = true;
+	            stopped.push(event);
 	            return false;
 	        });
-	        if (eventName === "pending" && this.listenerCount("pending") === 0) {
-	            this._stopPending();
-	        }
-	        // Do we still have any events that require polling?
-	        this._checkPolling();
+	        stopped.forEach(function (event) { _this._stopEvent(event); });
 	        return this;
 	    };
 	    BaseProvider.prototype.removeAllListeners = function (eventName) {
+	        var _this = this;
+	        var stopped = [];
 	        if (eventName == null) {
+	            stopped = this._events;
 	            this._events = [];
-	            this._stopPending();
 	        }
 	        else {
 	            var eventTag_1 = getEventTag(eventName);
 	            this._events = this._events.filter(function (event) {
-	                return (event.tag !== eventTag_1);
+	                if (event.tag !== eventTag_1) {
+	                    return true;
+	                }
+	                stopped.push(event);
+	                return false;
 	            });
-	            if (eventName === "pending") {
-	                this._stopPending();
-	            }
 	        }
-	        // Do we still have any events that require polling?
-	        this._checkPolling();
+	        stopped.forEach(function (event) { _this._stopEvent(event); });
 	        return this;
 	    };
 	    return BaseProvider;
@@ -19404,7 +19583,8 @@
 	});
 
 	var baseProvider$1 = unwrapExports(baseProvider);
-	var baseProvider_1 = baseProvider.BaseProvider;
+	var baseProvider_1 = baseProvider.Event;
+	var baseProvider_2 = baseProvider.BaseProvider;
 
 	var jsonRpcProvider = createCommonjsModule(function (module, exports) {
 	"use strict";
@@ -19466,13 +19646,11 @@
 
 
 
-	var logger = new lib.Logger(_version$G.version);
+	var logger = new lib.Logger(_version$I.version);
 
 	function timer(timeout) {
 	    return new Promise(function (resolve) {
-	        setTimeout(function () {
-	            resolve();
-	        }, timeout);
+	        setTimeout(resolve, timeout);
 	    });
 	}
 	function getResult(payload) {
@@ -19661,80 +19839,85 @@
 	        var _newTarget = this.constructor;
 	        var _this = this;
 	        logger.checkNew(_newTarget, JsonRpcProvider);
-	        var getNetwork = lib$3.getStatic((_newTarget), "getNetwork");
-	        // One parameter, but it is a network name, so swap it with the URL
-	        if (typeof (url) === "string") {
-	            if (network === null) {
-	                var checkNetwork = getNetwork(url);
-	                network = checkNetwork;
-	                url = null;
-	            }
-	        }
-	        if (network) {
-	            // The network has been specified explicitly, we can use it
-	            _this = _super.call(this, network) || this;
-	        }
-	        else {
-	            // The network is unknown, query the JSON-RPC for it
-	            var ready = new Promise(function (resolve, reject) {
-	                setTimeout(function () { return __awaiter(_this, void 0, void 0, function () {
-	                    var chainId, error_1, error_2;
-	                    return __generator(this, function (_a) {
-	                        switch (_a.label) {
-	                            case 0:
-	                                chainId = null;
-	                                _a.label = 1;
-	                            case 1:
-	                                _a.trys.push([1, 3, , 8]);
-	                                return [4 /*yield*/, this.send("eth_chainId", [])];
-	                            case 2:
-	                                chainId = _a.sent();
-	                                return [3 /*break*/, 8];
-	                            case 3:
-	                                error_1 = _a.sent();
-	                                _a.label = 4;
-	                            case 4:
-	                                _a.trys.push([4, 6, , 7]);
-	                                return [4 /*yield*/, this.send("net_version", [])];
-	                            case 5:
-	                                chainId = _a.sent();
-	                                return [3 /*break*/, 7];
-	                            case 6:
-	                                error_2 = _a.sent();
-	                                return [3 /*break*/, 7];
-	                            case 7: return [3 /*break*/, 8];
-	                            case 8:
-	                                if (chainId != null) {
-	                                    try {
-	                                        return [2 /*return*/, resolve(getNetwork(lib$2.BigNumber.from(chainId).toNumber()))];
-	                                    }
-	                                    catch (error) {
-	                                        console.log("e3", error);
-	                                    }
-	                                }
-	                                reject(logger.makeError("could not detect network", lib.Logger.errors.NETWORK_ERROR));
-	                                return [2 /*return*/];
-	                        }
+	        var networkOrReady = network;
+	        // The network is unknown, query the JSON-RPC for it
+	        if (networkOrReady == null) {
+	            networkOrReady = new Promise(function (resolve, reject) {
+	                setTimeout(function () {
+	                    _this.detectNetwork().then(function (network) {
+	                        resolve(network);
+	                    }, function (error) {
+	                        reject(error);
 	                    });
-	                }); }, 0);
+	                }, 0);
 	            });
-	            _this = _super.call(this, ready) || this;
 	        }
+	        _this = _super.call(this, networkOrReady) || this;
 	        // Default URL
 	        if (!url) {
-	            url = "http:/" + "/localhost:8545";
+	            url = lib$3.getStatic(_this.constructor, "defaultUrl")();
 	        }
 	        if (typeof (url) === "string") {
-	            _this.connection = Object.freeze({
+	            lib$3.defineReadOnly(_this, "connection", Object.freeze({
 	                url: url
-	            });
+	            }));
 	        }
 	        else {
-	            _this.connection = Object.freeze(lib$3.shallowCopy(url));
+	            lib$3.defineReadOnly(_this, "connection", Object.freeze(lib$3.shallowCopy(url)));
 	        }
 	        _this._nextId = 42;
 	        return _this;
 	    }
+	    JsonRpcProvider.defaultUrl = function () {
+	        return "http:/\/localhost:8545";
+	    };
+	    JsonRpcProvider.prototype.detectNetwork = function () {
+	        return __awaiter(this, void 0, void 0, function () {
+	            var chainId, error_1, error_2, getNetwork;
+	            return __generator(this, function (_a) {
+	                switch (_a.label) {
+	                    case 0: return [4 /*yield*/, timer(0)];
+	                    case 1:
+	                        _a.sent();
+	                        chainId = null;
+	                        _a.label = 2;
+	                    case 2:
+	                        _a.trys.push([2, 4, , 9]);
+	                        return [4 /*yield*/, this.send("eth_chainId", [])];
+	                    case 3:
+	                        chainId = _a.sent();
+	                        return [3 /*break*/, 9];
+	                    case 4:
+	                        error_1 = _a.sent();
+	                        _a.label = 5;
+	                    case 5:
+	                        _a.trys.push([5, 7, , 8]);
+	                        return [4 /*yield*/, this.send("net_version", [])];
+	                    case 6:
+	                        chainId = _a.sent();
+	                        return [3 /*break*/, 8];
+	                    case 7:
+	                        error_2 = _a.sent();
+	                        return [3 /*break*/, 8];
+	                    case 8: return [3 /*break*/, 9];
+	                    case 9:
+	                        if (chainId != null) {
+	                            getNetwork = lib$3.getStatic(this.constructor, "getNetwork");
+	                            try {
+	                                return [2 /*return*/, getNetwork(lib$2.BigNumber.from(chainId).toNumber())];
+	                            }
+	                            catch (error) {
+	                                return [2 /*return*/, logger.throwError("could not detect network", lib.Logger.errors.NETWORK_ERROR, {
+	                                        chainId: chainId,
+	                                        serverError: error
+	                                    })];
+	                            }
+	                        }
+	                        return [2 /*return*/, logger.throwError("could not detect network", lib.Logger.errors.NETWORK_ERROR)];
+	                }
+	            });
+	        });
+	    };
 	    JsonRpcProvider.prototype.getSigner = function (addressOrIndex) {
 	        return new JsonRpcSigner(_constructorGuard, this, addressOrIndex);
 	    };
@@ -19768,69 +19951,94 @@
 	                provider: _this
 	            });
 	            return result;
+	        }, function (error) {
+	            _this.emit("debug", {
+	                action: "response",
+	                error: error,
+	                request: request,
+	                provider: _this
+	            });
+	            throw error;
 	        });
 	    };
-	    JsonRpcProvider.prototype.perform = function (method, params) {
+	    JsonRpcProvider.prototype.prepareRequest = function (method, params) {
 	        switch (method) {
 	            case "getBlockNumber":
-	                return this.send("eth_blockNumber", []);
+	                return ["eth_blockNumber", []];
 	            case "getGasPrice":
-	                return this.send("eth_gasPrice", []);
+	                return ["eth_gasPrice", []];
 	            case "getBalance":
-	                return this.send("eth_getBalance", [getLowerCase(params.address), params.blockTag]);
+	                return ["eth_getBalance", [getLowerCase(params.address), params.blockTag]];
 	            case "getTransactionCount":
-	                return this.send("eth_getTransactionCount", [getLowerCase(params.address), params.blockTag]);
+	                return ["eth_getTransactionCount", [getLowerCase(params.address), params.blockTag]];
 	            case "getCode":
-	                return this.send("eth_getCode", [getLowerCase(params.address), params.blockTag]);
+	                return ["eth_getCode", [getLowerCase(params.address), params.blockTag]];
 	            case "getStorageAt":
-	                return this.send("eth_getStorageAt", [getLowerCase(params.address), params.position, params.blockTag]);
+	                return ["eth_getStorageAt", [getLowerCase(params.address), params.position, params.blockTag]];
 	            case "sendTransaction":
-	                return this.send("eth_sendRawTransaction", [params.signedTransaction]).catch(function (error) {
-	                    if (error.responseText) {
-	                        // "insufficient funds for gas * price + value"
-	                        if (error.responseText.indexOf("insufficient funds") > 0) {
-	                            logger.throwError("insufficient funds", lib.Logger.errors.INSUFFICIENT_FUNDS, {});
-	                        }
-	                        // "nonce too low"
-	                        if (error.responseText.indexOf("nonce too low") > 0) {
-	                            logger.throwError("nonce has already been used", lib.Logger.errors.NONCE_EXPIRED, {});
-	                        }
-	                        // "replacement transaction underpriced"
-	                        if (error.responseText.indexOf("replacement transaction underpriced") > 0) {
-	                            logger.throwError("replacement fee too low", lib.Logger.errors.REPLACEMENT_UNDERPRICED, {});
-	                        }
-	                    }
-	                    throw error;
-	                });
+	                return ["eth_sendRawTransaction", [params.signedTransaction]];
 	            case "getBlock":
 	                if (params.blockTag) {
-	                    return this.send("eth_getBlockByNumber", [params.blockTag, !!params.includeTransactions]);
+	                    return ["eth_getBlockByNumber", [params.blockTag, !!params.includeTransactions]];
 	                }
 	                else if (params.blockHash) {
-	                    return this.send("eth_getBlockByHash", [params.blockHash, !!params.includeTransactions]);
+	                    return ["eth_getBlockByHash", [params.blockHash, !!params.includeTransactions]];
 	                }
-	                return logger.throwArgumentError("invalid block tag or block hash", "params", params);
+	                return null;
 	            case "getTransaction":
-	                return this.send("eth_getTransactionByHash", [params.transactionHash]);
+	                return ["eth_getTransactionByHash", [params.transactionHash]];
 	            case "getTransactionReceipt":
-	                return this.send("eth_getTransactionReceipt", [params.transactionHash]);
+	                return ["eth_getTransactionReceipt", [params.transactionHash]];
 	            case "call": {
 	                var hexlifyTransaction = lib$3.getStatic(this.constructor, "hexlifyTransaction");
-	                return this.send("eth_call", [hexlifyTransaction(params.transaction, { from: true }), params.blockTag]);
+	                return ["eth_call", [hexlifyTransaction(params.transaction, { from: true }), params.blockTag]];
 	            }
 	            case "estimateGas": {
 	                var hexlifyTransaction = lib$3.getStatic(this.constructor, "hexlifyTransaction");
-	                return this.send("eth_estimateGas", [hexlifyTransaction(params.transaction, { from: true })]);
+	                return ["eth_estimateGas", [hexlifyTransaction(params.transaction, { from: true })]];
 	            }
 	            case "getLogs":
 	                if (params.filter && params.filter.address != null) {
 	                    params.filter.address = getLowerCase(params.filter.address);
 	                }
-	                return this.send("eth_getLogs", [params.filter]);
+	                return ["eth_getLogs", [params.filter]];
 	            default:
 	                break;
 	        }
-	        return logger.throwError(method + " not implemented", lib.Logger.errors.NOT_IMPLEMENTED, { operation: method });
+	        return null;
+	    };
+	    JsonRpcProvider.prototype.perform = function (method, params) {
+	        var args = this.prepareRequest(method, params);
+	        if (args == null) {
+	            logger.throwError(method + " not implemented", lib.Logger.errors.NOT_IMPLEMENTED, { operation: method });
+	        }
+	        // We need a little extra logic to process errors from sendTransaction
+	        if (method === "sendTransaction") {
+	            return this.send(args[0], args[1]).catch(function (error) {
+	                if (error.responseText) {
+	                    // "insufficient funds for gas * price + value"
+	                    if (error.responseText.indexOf("insufficient funds") > 0) {
+	                        logger.throwError("insufficient funds", lib.Logger.errors.INSUFFICIENT_FUNDS, {});
+	                    }
+	                    // "nonce too low"
+	                    if (error.responseText.indexOf("nonce too low") > 0) {
+	                        logger.throwError("nonce has already been used", lib.Logger.errors.NONCE_EXPIRED, {});
+	                    }
+	                    // "replacement transaction underpriced"
+	                    if (error.responseText.indexOf("replacement transaction underpriced") > 0) {
+	                        logger.throwError("replacement fee too low", lib.Logger.errors.REPLACEMENT_UNDERPRICED, {});
+	                    }
+	                }
+	                throw error;
+	            });
+	        }
+	        return this.send(args[0], args[1]);
+	    };
+	    JsonRpcProvider.prototype._startEvent = function (event) {
+	        if (event.tag === "pending") {
+	            this._startPending();
+	        }
+	        _super.prototype._startEvent.call(this, event);
 	    };
 	    JsonRpcProvider.prototype._startPending = function () {
 	        if (this._pendingFilter != null) {
@@ -19872,15 +20080,21 @@
 	            return filterId;
 	        }).catch(function (error) { });
 	    };
-	    JsonRpcProvider.prototype._stopPending = function () {
-	        this._pendingFilter = null;
+	    JsonRpcProvider.prototype._stopEvent = function (event) {
+	        if (event.tag === "pending" && this.listenerCount("pending") === 0) {
+	            this._pendingFilter = null;
+	        }
+	        _super.prototype._stopEvent.call(this, event);
 	    };
 	    // Convert an ethers.js transaction into a JSON-RPC transaction
 	    //  - gasLimit => gas
 	    //  - All values hexlified
 	    //  - All numeric values zero-striped
+	    //  - All addresses are lowercased
 	    // NOTE: This allows a TransactionRequest, but all values should be resolved
 	    //       before this is called
+	    // @TODO: This will likely be removed in future versions and prepareRequest
+	    //        will be the preferred method for this.
 	    JsonRpcProvider.hexlifyTransaction = function (transaction, allowExtra) {
 	        // Check only allowed properties are given
 	        var allowed = lib$3.shallowCopy(allowedTransactionKeys);
@@ -19936,11 +20150,47 @@
 	        d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
 	    };
 	})();
+	var __awaiter = (commonjsGlobal && commonjsGlobal.__awaiter) || function (thisArg, _arguments, P, generator) {
+	    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+	    return new (P || (P = Promise))(function (resolve, reject) {
+	        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+	        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+	        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+	        step((generator = generator.apply(thisArg, _arguments || [])).next());
+	    });
+	};
+	var __generator = (commonjsGlobal && commonjsGlobal.__generator) || function (thisArg, body) {
+	    var _ = { label: 0, sent: function() { if (t[0] & 1) throw t[1]; return t[1]; }, trys: [], ops: [] }, f, y, t, g;
+	    return g = { next: verb(0), "throw": verb(1), "return": verb(2) }, typeof Symbol === "function" && (g[Symbol.iterator] = function() { return this; }), g;
+	    function verb(n) { return function (v) { return step([n, v]); }; }
+	    function step(op) {
+	        if (f) throw new TypeError("Generator is already executing.");
+	        while (_) try {
+	            if (f = 1, y && (t = op[0] & 2 ? y["return"] : op[0] ? y["throw"] || ((t = y["return"]) && t.call(y), 0) : y.next) && !(t = t.call(y, op[1])).done) return t;
+	            if (y = 0, t) op = [op[0] & 2, t.value];
+	            switch (op[0]) {
+	                case 0: case 1: t = op; break;
+	                case 4: _.label++; return { value: op[1], done: false };
+	                case 5: _.label++; y = op[1]; op = [0]; continue;
+	                case 7: op = _.ops.pop(); _.trys.pop(); continue;
+	                default:
+	                    if (!(t = _.trys, t = t.length > 0 && t[t.length - 1]) && (op[0] === 6 || op[0] === 2)) { _ = 0; continue; }
+	                    if (op[0] === 3 && (!t || (op[1] > t[0] && op[1] < t[3]))) { _.label = op[1]; break; }
+	                    if (op[0] === 6 && _.label < t[1]) { _.label = t[1]; t = op; break; }
+	                    if (t && _.label < t[2]) { _.label = t[2]; _.ops.push(op); break; }
+	                    if (t[2]) _.ops.pop();
+	                    _.trys.pop(); continue;
+	            }
+	            op = body.call(thisArg, _);
+	        } catch (e) { op = [6, e]; y = 0; } finally { f = t = 0; }
+	        if (op[0] & 5) throw op[1]; return { value: op[0] ? op[1] : void 0, done: true };
+	    }
+	};
 	Object.defineProperty(exports, "__esModule", { value: true });
 
 
 
-	var logger = new lib.Logger(_version$G.version);
+	var logger = new lib.Logger(_version$I.version);
 
 	var UrlJsonRpcProvider = /** @class */ (function (_super) {
 	    __extends(UrlJsonRpcProvider, _super);
@@ -19963,6 +20213,13 @@
 	        }
 	        return _this;
 	    }
+	    UrlJsonRpcProvider.prototype.detectNetwork = function () {
+	        return __awaiter(this, void 0, void 0, function () {
+	            return __generator(this, function (_a) {
+	                return [2 /*return*/, this.network];
+	            });
+	        });
+	    };
 	    UrlJsonRpcProvider.prototype._startPending = function () {
 	        logger.warn("WARNING: API provider does not support pending filters");
 	    };
@@ -20010,7 +20267,7 @@
 	Object.defineProperty(exports, "__esModule", { value: true });
 
 
-	var logger = new lib.Logger(_version$G.version);
+	var logger = new lib.Logger(_version$I.version);
 
 	// This key was provided to ethers.js by Alchemy to be used by the
 	// default provider, but it is recommended that for your own
@@ -20043,6 +20300,9 @@
 	            case "rinkeby":
 	                host = "eth-rinkeby.alchemyapi.io/jsonrpc/";
 	                break;
+	            case "goerli":
+	                host = "eth-goerli.alchemyapi.io/jsonrpc/";
+	                break;
 	            case "kovan":
 	                host = "eth-kovan.alchemyapi.io/jsonrpc/";
 	                break;
@@ -20074,11 +20334,47 @@
 	        d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
 	    };
 	})();
+	var __awaiter = (commonjsGlobal && commonjsGlobal.__awaiter) || function (thisArg, _arguments, P, generator) {
+	    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+	    return new (P || (P = Promise))(function (resolve, reject) {
+	        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+	        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+	        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+	        step((generator = generator.apply(thisArg, _arguments || [])).next());
+	    });
+	};
+	var __generator = (commonjsGlobal && commonjsGlobal.__generator) || function (thisArg, body) {
+	    var _ = { label: 0, sent: function() { if (t[0] & 1) throw t[1]; return t[1]; }, trys: [], ops: [] }, f, y, t, g;
+	    return g = { next: verb(0), "throw": verb(1), "return": verb(2) }, typeof Symbol === "function" && (g[Symbol.iterator] = function() { return this; }), g;
+	    function verb(n) { return function (v) { return step([n, v]); }; }
+	    function step(op) {
+	        if (f) throw new TypeError("Generator is already executing.");
+	        while (_) try {
+	            if (f = 1, y && (t = op[0] & 2 ? y["return"] : op[0] ? y["throw"] || ((t = y["return"]) && t.call(y), 0) : y.next) && !(t = t.call(y, op[1])).done) return t;
+	            if (y = 0, t) op = [op[0] & 2, t.value];
+	            switch (op[0]) {
+	                case 0: case 1: t = op; break;
+	                case 4: _.label++; return { value: op[1], done: false };
+	                case 5: _.label++; y = op[1]; op = [0]; continue;
+	                case 7: op = _.ops.pop(); _.trys.pop(); continue;
+	                default:
+	                    if (!(t = _.trys, t = t.length > 0 && t[t.length - 1]) && (op[0] === 6 || op[0] === 2)) { _ = 0; continue; }
+	                    if (op[0] === 3 && (!t || (op[1] > t[0] && op[1] < t[3]))) { _.label = op[1]; break; }
+	                    if (op[0] === 6 && _.label < t[1]) { _.label = t[1]; t = op; break; }
+	                    if (t && _.label < t[2]) { _.label = t[2]; _.ops.push(op); break; }
+	                    if (t[2]) _.ops.pop();
+	                    _.trys.pop(); continue;
+	            }
+	            op = body.call(thisArg, _);
+	        } catch (e) { op = [6, e]; y = 0; } finally { f = t = 0; }
+	        if (op[0] & 5) throw op[1]; return { value: op[0] ? op[1] : void 0, done: true };
+	    }
+	};
 	Object.defineProperty(exports, "__esModule", { value: true });
 
 
 
-	var logger = new lib.Logger(_version$G.version);
+	var logger = new lib.Logger(_version$I.version);
 	var CloudflareProvider = /** @class */ (function (_super) {
 	    __extends(CloudflareProvider, _super);
 	    function CloudflareProvider() {
@@ -20100,6 +20396,22 @@
 	                logger.throwArgumentError("unsupported network", "network", arguments[0]);
 	        }
 	        return host;
+	    };
+	    CloudflareProvider.prototype.perform = function (method, params) {
+	        return __awaiter(this, void 0, void 0, function () {
+	            var block;
+	            return __generator(this, function (_a) {
+	                switch (_a.label) {
+	                    case 0:
+	                        if (!(method === "getBlockNumber")) return [3 /*break*/, 2];
+	                        return [4 /*yield*/, _super.prototype.perform.call(this, "getBlock", { blockTag: "latest" })];
+	                    case 1:
+	                        block = _a.sent();
+	                        return [2 /*return*/, block.number];
+	                    case 2: return [2 /*return*/, _super.prototype.perform.call(this, method, params)];
+	                }
+	            });
+	        });
 	    };
 	    return CloudflareProvider;
 	}(urlJsonRpcProvider.UrlJsonRpcProvider));
@@ -20166,7 +20478,7 @@
 
 
 
-	var logger = new lib.Logger(_version$G.version);
+	var logger = new lib.Logger(_version$I.version);
 
 	// The transaction has already been sanitized by the calls in Provider
 	function getTransactionString(transaction) {
@@ -20262,6 +20574,13 @@
 	        lib$3.defineReadOnly(_this, "apiKey", apiKey || defaultApiKey);
 	        return _this;
 	    }
+	    EtherscanProvider.prototype.detectNetwork = function () {
+	        return __awaiter(this, void 0, void 0, function () {
+	            return __generator(this, function (_a) {
+	                return [2 /*return*/, this.network];
+	            });
+	        });
+	    };
 	    EtherscanProvider.prototype.perform = function (method, params) {
 	        return __awaiter(this, void 0, void 0, function () {
 	            var url, apiKey, get, _a, transaction, transaction, topic0, logs, txs, i, log, tx, _b;
@@ -20371,7 +20690,7 @@
 	                            url += apiKey;
 	                            return [2 /*return*/, get(url)];
 	                        }
-	                        throw new Error("getBlock by blockHash not implmeneted");
+	                        throw new Error("getBlock by blockHash not implemented");
 	                    case 9:
 	                        url += "/api?module=proxy&action=eth_getTransactionByHash&txhash=" + params.transactionHash;
 	                        url += apiKey;
@@ -20466,7 +20785,7 @@
 	                        url += apiKey;
 	                        _b = parseFloat;
 	                        return [4 /*yield*/, get(url, getResult)];
-	                    case 21: return [2 /*return*/, _b.apply(void 0, [_c.sent()])];
+	                    case 21: return [2 /*return*/, _b.apply(void 0, [(_c.sent()).ethusd])];
 	                    case 22: return [3 /*break*/, 23];
 	                    case 23: return [2 /*return*/, _super.prototype.perform.call(this, method, params)];
 	                }
@@ -20590,8 +20909,10 @@
 
 
 
-	var logger = new lib.Logger(_version$G.version);
 
+
+
+	var logger = new lib.Logger(_version$I.version);
 	function now() { return (new Date()).getTime(); }
 	// Returns to network as long as all agree, or null if any is null.
 	// Throws an error if any two networks do not match.
@@ -20616,7 +20937,7 @@
 	    }
 	    return result;
 	}
-	function median(values) {
+	function median(values, maxDelta) {
 	    values = values.slice().sort();
 	    var middle = Math.floor(values.length / 2);
 	    // Odd length; take the middle
@@ -20625,6 +20946,9 @@
 	    }
 	    // Even length; take the average of the two middle
 	    var a = values[middle - 1], b = values[middle];
+	    if (maxDelta != null && Math.abs(a - b) > maxDelta) {
+	        return null;
+	    }
 	    return (a + b) / 2;
 	}
 	function serialize(value) {
@@ -20662,14 +20986,27 @@
 	// Next request ID to use for emitting debug info
 	var nextRid = 1;
 	;
-	// Returns a promise that delays for duration
 	function stall(duration) {
-	    return new Promise(function (resolve) {
-	        var timer = setTimeout(resolve, duration);
-	        if (timer.unref) {
-	            timer.unref();
-	        }
-	    });
+	    var cancel = null;
+	    var timer = null;
+	    var promise = (new Promise(function (resolve) {
+	        cancel = function () {
+	            if (timer) {
+	                clearTimeout(timer);
+	                timer = null;
+	            }
+	            resolve();
+	        };
+	        timer = setTimeout(cancel, duration);
+	    }));
+	    var wait = function (func) {
+	        promise = promise.then(func);
+	        return promise;
+	    };
+	    function getPromise() {
+	        return promise;
+	    }
+	    return { cancel: cancel, getPromise: getPromise, wait: wait };
 	}
 	;
 	function exposeDebugConfig(config, now) {
@@ -20727,7 +21064,11 @@
 	            return function (configs) {
 	                var values = configs.map(function (c) { return c.result; });
 	                // Get the median block number
-	                var blockNumber = Math.ceil(median(configs.map(function (c) { return c.result; })));
+	                var blockNumber = median(configs.map(function (c) { return c.result; }), 2);
+	                if (blockNumber == null) {
+	                    return undefined;
+	                }
+	                blockNumber = Math.ceil(blockNumber);
 	                // If the next block height is present, its prolly safe to use
 	                if (values.indexOf(blockNumber + 1) >= 0) {
 	                    blockNumber++;
@@ -20807,36 +21148,108 @@
 	    // satisfied and agreed upon for the final result.
 	    return normalizedTally(normalize, provider.quorum);
 	}
-	function getRunner(provider, method, params) {
-	    switch (method) {
-	        case "getBlockNumber":
-	        case "getGasPrice":
-	            return provider[method]();
-	        case "getEtherPrice":
-	            if (provider.getEtherPrice) {
-	                return provider.getEtherPrice();
+	// If we are doing a blockTag query, we need to make sure the backend is
+	// caught up to the FallbackProvider, before sending a request to it.
+	function waitForSync(config, blockNumber) {
+	    return __awaiter(this, void 0, void 0, function () {
+	        var provider;
+	        return __generator(this, function (_a) {
+	            provider = (config.provider);
+	            if ((provider.blockNumber != null && provider.blockNumber >= blockNumber) || blockNumber === -1) {
+	                return [2 /*return*/, provider];
 	            }
-	            break;
-	        case "getBalance":
-	        case "getTransactionCount":
-	        case "getCode":
-	            return provider[method](params.address, params.blockTag || "latest");
-	        case "getStorageAt":
-	            return provider.getStorageAt(params.address, params.position, params.blockTag || "latest");
-	        case "getBlock":
-	            return provider[(params.includeTransactions ? "getBlockWithTransactions" : "getBlock")](params.blockTag || params.blockHash);
-	        case "call":
-	        case "estimateGas":
-	            return provider[method](params.transaction);
-	        case "getTransaction":
-	        case "getTransactionReceipt":
-	            return provider[method](params.transactionHash);
-	        case "getLogs":
-	            return provider.getLogs(params.filter);
-	    }
-	    return logger.throwError("unknown method error", lib.Logger.errors.UNKNOWN_ERROR, {
-	        method: method,
-	        params: params
+	            return [2 /*return*/, lib$l.poll(function () {
+	                    return new Promise(function (resolve, reject) {
+	                        setTimeout(function () {
+	                            // We are synced
+	                            if (provider.blockNumber >= blockNumber) {
+	                                return resolve(lib$b.Provider);
+	                            }
+	                            // We're done; just quit
+	                            if (config.cancelled) {
+	                                return resolve(null);
+	                            }
+	                            // Try again, next block
+	                            return resolve(undefined);
+	                        }, 0);
+	                    });
+	                }, { oncePoll: provider })];
+	        });
+	    });
+	}
+	function getRunner(config, currentBlockNumber, method, params) {
+	    return __awaiter(this, void 0, void 0, function () {
+	        var provider, _a, filter;
+	        return __generator(this, function (_b) {
+	            switch (_b.label) {
+	                case 0:
+	                    provider = config.provider;
+	                    _a = method;
+	                    switch (_a) {
+	                        case "getBlockNumber": return [3 /*break*/, 1];
+	                        case "getGasPrice": return [3 /*break*/, 1];
+	                        case "getEtherPrice": return [3 /*break*/, 2];
+	                        case "getBalance": return [3 /*break*/, 3];
+	                        case "getTransactionCount": return [3 /*break*/, 3];
+	                        case "getCode": return [3 /*break*/, 3];
+	                        case "getStorageAt": return [3 /*break*/, 6];
+	                        case "getBlock": return [3 /*break*/, 9];
+	                        case "call": return [3 /*break*/, 12];
+	                        case "estimateGas": return [3 /*break*/, 12];
+	                        case "getTransaction": return [3 /*break*/, 15];
+	                        case "getTransactionReceipt": return [3 /*break*/, 15];
+	                        case "getLogs": return [3 /*break*/, 16];
+	                    }
+	                    return [3 /*break*/, 19];
+	                case 1: return [2 /*return*/, provider[method]()];
+	                case 2:
+	                    if (provider.getEtherPrice) {
+	                        return [2 /*return*/, provider.getEtherPrice()];
+	                    }
+	                    return [3 /*break*/, 19];
+	                case 3:
+	                    if (!(params.blockTag && lib$1.isHexString(params.blockTag))) return [3 /*break*/, 5];
+	                    return [4 /*yield*/, waitForSync(config, currentBlockNumber)];
+	                case 4:
+	                    provider = _b.sent();
+	                    _b.label = 5;
+	                case 5: return [2 /*return*/, provider[method](params.address, params.blockTag || "latest")];
+	                case 6:
+	                    if (!(params.blockTag && lib$1.isHexString(params.blockTag))) return [3 /*break*/, 8];
+	                    return [4 /*yield*/, waitForSync(config, currentBlockNumber)];
+	                case 7:
+	                    provider = _b.sent();
+	                    _b.label = 8;
+	                case 8: return [2 /*return*/, provider.getStorageAt(params.address, params.position, params.blockTag || "latest")];
+	                case 9:
+	                    if (!(params.blockTag && lib$1.isHexString(params.blockTag))) return [3 /*break*/, 11];
+	                    return [4 /*yield*/, waitForSync(config, currentBlockNumber)];
+	                case 10:
+	                    provider = _b.sent();
+	                    _b.label = 11;
+	                case 11: return [2 /*return*/, provider[(params.includeTransactions ? "getBlockWithTransactions" : "getBlock")](params.blockTag || params.blockHash)];
+	                case 12:
+	                    if (!(params.blockTag && lib$1.isHexString(params.blockTag))) return [3 /*break*/, 14];
+	                    return [4 /*yield*/, waitForSync(config, currentBlockNumber)];
+	                case 13:
+	                    provider = _b.sent();
+	                    _b.label = 14;
+	                case 14: return [2 /*return*/, provider[method](params.transaction)];
+	                case 15: return [2 /*return*/, provider[method](params.transactionHash)];
+	                case 16:
+	                    filter = params.filter;
+	                    if (!((filter.fromBlock && lib$1.isHexString(filter.fromBlock)) || (filter.toBlock && lib$1.isHexString(filter.toBlock)))) return [3 /*break*/, 18];
+	                    return [4 /*yield*/, waitForSync(config, currentBlockNumber)];
+	                case 17:
+	                    provider = _b.sent();
+	                    _b.label = 18;
+	                case 18: return [2 /*return*/, provider.getLogs(filter)];
+	                case 19: return [2 /*return*/, logger.throwError("unknown method error", lib.Logger.errors.UNKNOWN_ERROR, {
+	                        method: method,
+	                        params: params
+	                    })];
+	            }
+	        });
 	    });
 	}
 	var FallbackProvider = /** @class */ (function (_super) {
@@ -20881,11 +21294,7 @@
 	            _this = _super.call(this, network) || this;
 	        }
 	        else {
-	            // The network won't be known until all child providers know
-	            var ready = Promise.all(providerConfigs.map(function (c) { return c.provider.getNetwork(); })).then(function (networks) {
-	                return checkNetworks(networks);
-	            });
-	            _this = _super.call(this, ready) || this;
+	            _this = _super.call(this, _this.detectNetwork()) || this;
 	        }
 	        // Preserve a copy, so we do not get mutated
 	        lib$3.defineReadOnly(_this, "providerConfigs", Object.freeze(providerConfigs));
@@ -20893,37 +21302,58 @@
 	        _this._highestBlockNumber = -1;
 	        return _this;
 	    }
+	    FallbackProvider.prototype.detectNetwork = function () {
+	        return __awaiter(this, void 0, void 0, function () {
+	            var networks;
+	            return __generator(this, function (_a) {
+	                switch (_a.label) {
+	                    case 0: return [4 /*yield*/, Promise.all(this.providerConfigs.map(function (c) { return c.provider.getNetwork(); }))];
+	                    case 1:
+	                        networks = _a.sent();
+	                        return [2 /*return*/, checkNetworks(networks)];
+	                }
+	            });
+	        });
+	    };
 	    FallbackProvider.prototype.perform = function (method, params) {
 	        return __awaiter(this, void 0, void 0, function () {
-	            var processFunc, configs, i, _loop_1, this_1, state_1;
+	            var results, i_1, result, processFunc, configs, currentBlockNumber, i, first, _loop_1, this_1, state_1;
 	            var _this = this;
 	            return __generator(this, function (_a) {
 	                switch (_a.label) {
 	                    case 0:
-	                        // Sending transactions is special; always broadcast it to all backends
-	                        if (method === "sendTransaction") {
-	                            return [2 /*return*/, Promise.all(this.providerConfigs.map(function (c) {
-	                                    return c.provider.sendTransaction(params.signedTransaction).then(function (result) {
-	                                        return result.hash;
-	                                    }, function (error) {
-	                                        return error;
-	                                    });
-	                                })).then(function (results) {
-	                                    // Any success is good enough (other errors are likely "already seen" errors
-	                                    for (var i_1 = 0; i_1 < results.length; i_1++) {
-	                                        var result = results[i_1];
-	                                        if (typeof (result) === "string") {
-	                                            return result;
-	                                        }
-	                                    }
-	                                    // They were all an error; pick the first error
-	                                    return Promise.reject(results[0].error);
-	                                })];
+	                        if (!(method === "sendTransaction")) return [3 /*break*/, 2];
+	                        return [4 /*yield*/, Promise.all(this.providerConfigs.map(function (c) {
+	                                return c.provider.sendTransaction(params.signedTransaction).then(function (result) {
+	                                    return result.hash;
+	                                }, function (error) {
+	                                    return error;
+	                                });
+	                            }))];
+	                    case 1:
+	                        results = _a.sent();
+	                        // Any success is good enough (other errors are likely "already seen" errors
+	                        for (i_1 = 0; i_1 < results.length; i_1++) {
+	                            result = results[i_1];
+	                            if (typeof (result) === "string") {
+	                                return [2 /*return*/, result];
+	                            }
 	                        }
+	                        // They were all an error; pick the first error
+	                        throw results[0];
+	                    case 2:
+	                        if (!(this._highestBlockNumber === -1 && method !== "getBlockNumber")) return [3 /*break*/, 4];
+	                        return [4 /*yield*/, this.getBlockNumber()];
+	                    case 3:
+	                        _a.sent();
+	                        _a.label = 4;
+	                    case 4:
 	                        processFunc = getProcessFunc(this, method, params);
-	                        configs = browser$6.shuffled(this.providerConfigs.map(function (c) { return lib$3.shallowCopy(c); }));
+	                        configs = browser$6.shuffled(this.providerConfigs.map(lib$3.shallowCopy));
 	                        configs.sort(function (a, b) { return (a.priority - b.priority); });
+	                        currentBlockNumber = this._highestBlockNumber;
 	                        i = 0;
+	                        first = true;
 	                        _loop_1 = function () {
 	                            var t0, inflightWeight, _loop_2, waiting, results, result;
 	                            return __generator(this, function (_a) {
@@ -20936,8 +21366,9 @@
 	                                            var config = configs[i++];
 	                                            var rid = nextRid++;
 	                                            config.start = now();
-	                                            config.staller = stall(config.stallTimeout).then(function () { config.staller = null; });
-	                                            config.runner = getRunner(config.provider, method, params).then(function (result) {
+	                                            config.staller = stall(config.stallTimeout);
+	                                            config.staller.wait(function () { config.staller = null; });
+	                                            config.runner = getRunner(config, currentBlockNumber, method, params).then(function (result) {
 	                                                config.done = true;
 	                                                config.result = result;
 	                                                if (_this.listenerCount("debug")) {
@@ -20962,7 +21393,6 @@
 	                                                    });
 	                                                }
 	                                            });
-	                                            //running.push(config);
 	                                            if (this_1.listenerCount("debug")) {
 	                                                this_1.emit("debug", {
 	                                                    action: "request",
@@ -20985,7 +21415,7 @@
 	                                            }
 	                                            waiting.push(c.runner);
 	                                            if (c.staller) {
-	                                                waiting.push(c.staller);
+	                                                waiting.push(c.staller.getPromise());
 	                                            }
 	                                        });
 	                                        if (!waiting.length) return [3 /*break*/, 2];
@@ -20995,12 +21425,27 @@
 	                                        _a.label = 2;
 	                                    case 2:
 	                                        results = configs.filter(function (c) { return (c.done && c.error == null); });
-	                                        if (results.length >= this_1.quorum) {
-	                                            result = processFunc(results);
-	                                            if (result !== undefined) {
-	                                                return [2 /*return*/, { value: result }];
-	                                            }
+	                                        if (!(results.length >= this_1.quorum)) return [3 /*break*/, 5];
+	                                        result = processFunc(results);
+	                                        if (result !== undefined) {
+	                                            // Shut down any stallers
+	                                            configs.forEach(function (c) {
+	                                                if (c.staller) {
+	                                                    c.staller.cancel();
+	                                                }
+	                                                c.cancelled = true;
+	                                            });
+	                                            return [2 /*return*/, { value: result }];
 	                                        }
+	                                        if (!!first) return [3 /*break*/, 4];
+	                                        return [4 /*yield*/, stall(100).getPromise()];
+	                                    case 3:
+	                                        _a.sent();
+	                                        _a.label = 4;
+	                                    case 4:
+	                                        first = false;
+	                                        _a.label = 5;
+	                                    case 5:
 	                                        // All configs have run to completion; we will never get more data
 	                                        if (configs.filter(function (c) { return !c.done; }).length === 0) {
 	                                            return [2 /*return*/, "break"];
@@ -21010,25 +21455,33 @@
 	                            });
 	                        };
 	                        this_1 = this;
-	                        _a.label = 1;
-	                    case 1:
-	                        if (!true) return [3 /*break*/, 3];
+	                        _a.label = 5;
+	                    case 5:
+	                        if (!true) return [3 /*break*/, 7];
 	                        return [5 /*yield**/, _loop_1()];
-	                    case 2:
+	                    case 6:
 	                        state_1 = _a.sent();
 	                        if (typeof state_1 === "object")
 	                            return [2 /*return*/, state_1.value];
 	                        if (state_1 === "break")
-	                            return [3 /*break*/, 3];
-	                        return [3 /*break*/, 1];
-	                    case 3: return [2 /*return*/, logger.throwError("failed to meet quorum", lib.Logger.errors.SERVER_ERROR, {
-	                            method: method,
-	                            params: params,
-	                            //results: configs.map((c) => c.result),
-	                            //errors: configs.map((c) => c.error),
-	                            results: configs.map(function (c) { return exposeDebugConfig(c); }),
-	                            provider: this
-	                        })];
+	                            return [3 /*break*/, 7];
+	                        return [3 /*break*/, 5];
+	                    case 7:
+	                        // Shut down any stallers; shouldn't be any
+	                        configs.forEach(function (c) {
+	                            if (c.staller) {
+	                                c.staller.cancel();
+	                            }
+	                            c.cancelled = true;
+	                        });
+	                        return [2 /*return*/, logger.throwError("failed to meet quorum", lib.Logger.errors.SERVER_ERROR, {
+	                                method: method,
+	                                params: params,
+	                                //results: configs.map((c) => c.result),
+	                                //errors: configs.map((c) => c.error),
+	                                results: configs.map(function (c) { return exposeDebugConfig(c); }),
+	                                provider: this
+	                            })];
 	                }
 	            });
 	        });
@@ -21042,9 +21495,38 @@
 	var fallbackProvider_1 = fallbackProvider.FallbackProvider;
 
 	"use strict";
-	var browserNet = {};
+	var IpcProvider = null;
 
-	var ipcProvider = createCommonjsModule(function (module, exports) {
+	var browserIpcProvider = {
+		IpcProvider: IpcProvider
+	};
+
+	var browserWs = createCommonjsModule(function (module, exports) {
+	"use strict";
+	Object.defineProperty(exports, "__esModule", { value: true });
+
+
+	var WS = null;
+	try {
+	    WS = WebSocket;
+	    if (WS == null) {
+	        throw new Error("inject please");
+	    }
+	}
+	catch (error) {
+	    var logger_2 = new lib.Logger(_version$I.version);
+	    WS = function () {
+	        logger_2.throwError("WebSockets not supported in this environment", lib.Logger.errors.UNSUPPORTED_OPERATION, {
+	            operation: "new WebSocket()"
+	        });
+	    };
+	}
+	module.exports = WS;
+	});
+
+	var browserWs$1 = unwrapExports(browserWs);
+
+	var websocketProvider = createCommonjsModule(function (module, exports) {
 	"use strict";
 	var __extends = (commonjsGlobal && commonjsGlobal.__extends) || (function () {
 	    var extendStatics = function (d, b) {
@@ -21059,74 +21541,292 @@
 	        d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
 	    };
 	})();
+	var __awaiter = (commonjsGlobal && commonjsGlobal.__awaiter) || function (thisArg, _arguments, P, generator) {
+	    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+	    return new (P || (P = Promise))(function (resolve, reject) {
+	        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+	        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+	        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+	        step((generator = generator.apply(thisArg, _arguments || [])).next());
+	    });
+	};
+	var __generator = (commonjsGlobal && commonjsGlobal.__generator) || function (thisArg, body) {
+	    var _ = { label: 0, sent: function() { if (t[0] & 1) throw t[1]; return t[1]; }, trys: [], ops: [] }, f, y, t, g;
+	    return g = { next: verb(0), "throw": verb(1), "return": verb(2) }, typeof Symbol === "function" && (g[Symbol.iterator] = function() { return this; }), g;
+	    function verb(n) { return function (v) { return step([n, v]); }; }
+	    function step(op) {
+	        if (f) throw new TypeError("Generator is already executing.");
+	        while (_) try {
+	            if (f = 1, y && (t = op[0] & 2 ? y["return"] : op[0] ? y["throw"] || ((t = y["return"]) && t.call(y), 0) : y.next) && !(t = t.call(y, op[1])).done) return t;
+	            if (y = 0, t) op = [op[0] & 2, t.value];
+	            switch (op[0]) {
+	                case 0: case 1: t = op; break;
+	                case 4: _.label++; return { value: op[1], done: false };
+	                case 5: _.label++; y = op[1]; op = [0]; continue;
+	                case 7: op = _.ops.pop(); _.trys.pop(); continue;
+	                default:
+	                    if (!(t = _.trys, t = t.length > 0 && t[t.length - 1]) && (op[0] === 6 || op[0] === 2)) { _ = 0; continue; }
+	                    if (op[0] === 3 && (!t || (op[1] > t[0] && op[1] < t[3]))) { _.label = op[1]; break; }
+	                    if (op[0] === 6 && _.label < t[1]) { _.label = t[1]; t = op; break; }
+	                    if (t && _.label < t[2]) { _.label = t[2]; _.ops.push(op); break; }
+	                    if (t[2]) _.ops.pop();
+	                    _.trys.pop(); continue;
+	            }
+	            op = body.call(thisArg, _);
+	        } catch (e) { op = [6, e]; y = 0; } finally { f = t = 0; }
+	        if (op[0] & 5) throw op[1]; return { value: op[0] ? op[1] : void 0, done: true };
+	    }
+	};
 	var __importDefault = (commonjsGlobal && commonjsGlobal.__importDefault) || function (mod) {
 	    return (mod && mod.__esModule) ? mod : { "default": mod };
 	};
 	Object.defineProperty(exports, "__esModule", { value: true });
-	var net_1 = __importDefault(browserNet);
+	var ws_1 = __importDefault(browserWs);
 
 
 
-	var logger = new lib.Logger(_version$G.version);
 
-	var IpcProvider = /** @class */ (function (_super) {
-	    __extends(IpcProvider, _super);
-	    function IpcProvider(path, network) {
-	        var _newTarget = this.constructor;
-	        var _this = this;
-	        logger.checkNew(_newTarget, IpcProvider);
-	        if (path == null) {
-	            logger.throwError("missing path", lib.Logger.errors.MISSING_ARGUMENT, { arg: "path" });
-	        }
-	        _this = _super.call(this, "ipc://" + path, network) || this;
-	        lib$3.defineReadOnly(_this, "path", path);
+
+	var logger = new lib.Logger(_version$I.version);
+	/**
+	 *  Notes:
+	 *
+	 *  This provider differs a bit from the polling providers. One main
+	 *  difference is how it handles consistency. The polling providers
+	 *  will stall responses to ensure a consistent state, while this
+	 *  WebSocket provider assumes the connected backend will manage this.
+	 *
+	 *  For example, if a polling provider emits an event which indicats
+	 *  the event occurred in blockhash XXX, a call to fetch that block by
+	 *  its hash XXX, if not present will retry until it is present. This
+	 *  can occur when querying a pool of nodes that are mildly out of sync
+	 *  with each other.
+	 */
+	var NextId = 1;
+	// For more info about the Real-time Event API see:
+	//   https://geth.ethereum.org/docs/rpc/pubsub
+	var WebSocketProvider = /** @class */ (function (_super) {
+	    __extends(WebSocketProvider, _super);
+	    function WebSocketProvider(url, network) {
+	        var _this = _super.call(this, url, network) || this;
+	        _this._pollingInterval = -1;
+	        lib$3.defineReadOnly(_this, "_websocket", new ws_1.default(_this.connection.url));
+	        lib$3.defineReadOnly(_this, "_requests", {});
+	        lib$3.defineReadOnly(_this, "_subs", {});
+	        lib$3.defineReadOnly(_this, "_subIds", {});
+	        // Stall sending requests until the socket is open...
+	        _this._wsReady = false;
+	        _this._websocket.onopen = function () {
+	            _this._wsReady = true;
+	            Object.keys(_this._requests).forEach(function (id) {
+	                _this._websocket.send(_this._requests[id].payload);
+	            });
+	        };
+	        _this._websocket.onmessage = function (messageEvent) {
+	            var data = messageEvent.data;
+	            var result = JSON.parse(data);
+	            if (result.id != null) {
+	                var id = String(result.id);
+	                var request = _this._requests[id];
+	                delete _this._requests[id];
+	                if (result.result !== undefined) {
+	                    request.callback(null, result.result);
+	                }
+	                else {
+	                    if (result.error) {
+	                        var error = new Error(result.error.message || "unknown error");
+	                        lib$3.defineReadOnly(error, "code", result.error.code || null);
+	                        lib$3.defineReadOnly(error, "response", data);
+	                        request.callback(error, undefined);
+	                    }
+	                    else {
+	                        request.callback(new Error("unknown error"), undefined);
+	                    }
+	                }
+	            }
+	            else if (result.method === "eth_subscription") {
+	                // Subscription...
+	                var sub = _this._subs[result.params.subscription];
+	                if (sub) {
+	                    //this.emit.apply(this,                  );
+	                    sub.processFunc(result.params.result);
+	                }
+	            }
+	            else {
+	                console.warn("this should not happen");
+	            }
+	        };
 	        return _this;
 	    }
-	    // @TODO: Create a connection to the IPC path and use filters instead of polling for block
-	    IpcProvider.prototype.send = function (method, params) {
-	        // This method is very simple right now. We create a new socket
-	        // connection each time, which may be slower, but the main
-	        // advantage we are aiming for now is security. This simplifies
-	        // multiplexing requests (since we do not need to multiplex).
-	        var _this = this;
-	        var payload = JSON.stringify({
-	            method: method,
-	            params: params,
-	            id: 42,
-	            jsonrpc: "2.0"
-	        });
-	        return new Promise(function (resolve, reject) {
-	            var response = Buffer.alloc(0);
-	            var stream = net_1.default.connect(_this.path);
-	            stream.on("data", function (data) {
-	                response = Buffer.concat([response, data]);
+	    Object.defineProperty(WebSocketProvider.prototype, "pollingInterval", {
+	        get: function () {
+	            return 0;
+	        },
+	        set: function (value) {
+	            logger.throwError("cannot set polling interval on WebSocketProvider", lib.Logger.errors.UNSUPPORTED_OPERATION, {
+	                operation: "setPollingInterval"
 	            });
-	            stream.on("end", function () {
-	                try {
-	                    resolve(JSON.parse(response.toString()).result);
-	                    // @TODO: Better pull apart the error
-	                    stream.destroy();
-	                }
-	                catch (error) {
-	                    reject(error);
-	                    stream.destroy();
-	                }
-	            });
-	            stream.on("error", function (error) {
-	                reject(error);
-	                stream.destroy();
-	            });
-	            stream.write(payload);
-	            stream.end();
+	        },
+	        enumerable: true,
+	        configurable: true
+	    });
+	    WebSocketProvider.prototype.resetEventsBlock = function (blockNumber) {
+	        logger.throwError("cannot reset events block on WebSocketProvider", lib.Logger.errors.UNSUPPORTED_OPERATION, {
+	            operation: "resetEventBlock"
 	        });
 	    };
-	    return IpcProvider;
+	    WebSocketProvider.prototype.poll = function () {
+	        return __awaiter(this, void 0, void 0, function () {
+	            return __generator(this, function (_a) {
+	                return [2 /*return*/, null];
+	            });
+	        });
+	    };
+	    Object.defineProperty(WebSocketProvider.prototype, "polling", {
+	        set: function (value) {
+	            if (!value) {
+	                return;
+	            }
+	            logger.throwError("cannot set polling on WebSocketProvider", lib.Logger.errors.UNSUPPORTED_OPERATION, {
+	                operation: "setPolling"
+	            });
+	        },
+	        enumerable: true,
+	        configurable: true
+	    });
+	    WebSocketProvider.prototype.send = function (method, params) {
+	        var _this = this;
+	        var rid = NextId++;
+	        return new Promise(function (resolve, reject) {
+	            function callback(error, result) {
+	                if (error) {
+	                    return reject(error);
+	                }
+	                return resolve(result);
+	            }
+	            var payload = JSON.stringify({
+	                method: method,
+	                params: params,
+	                id: rid,
+	                jsonrpc: "2.0"
+	            });
+	            _this._requests[String(rid)] = { callback: callback, payload: payload };
+	            if (_this._wsReady) {
+	                _this._websocket.send(payload);
+	            }
+	        });
+	    };
+	    WebSocketProvider.defaultUrl = function () {
+	        return "ws:/\/localhost:8546";
+	    };
+	    WebSocketProvider.prototype._subscribe = function (tag, param, processFunc) {
+	        return __awaiter(this, void 0, void 0, function () {
+	            var subIdPromise, subId;
+	            var _this = this;
+	            return __generator(this, function (_a) {
+	                switch (_a.label) {
+	                    case 0:
+	                        subIdPromise = this._subIds[tag];
+	                        if (subIdPromise == null) {
+	                            subIdPromise = Promise.all(param).then(function (param) {
+	                                return _this.send("eth_subscribe", param);
+	                            });
+	                            this._subIds[tag] = subIdPromise;
+	                        }
+	                        return [4 /*yield*/, subIdPromise];
+	                    case 1:
+	                        subId = _a.sent();
+	                        this._subs[subId] = { tag: tag, processFunc: processFunc };
+	                        return [2 /*return*/];
+	                }
+	            });
+	        });
+	    };
+	    WebSocketProvider.prototype._startEvent = function (event) {
+	        var _this = this;
+	        switch (event.type) {
+	            case "block":
+	                this._subscribe("block", ["newHeads", {}], function (result) {
+	                    _this.emit("block", lib$2.BigNumber.from(result.number).toNumber());
+	                });
+	                break;
+	            case "pending":
+	                this._subscribe("pending", ["newPendingTransactions"], function (result) {
+	                    _this.emit("pending", result);
+	                });
+	                break;
+	            case "filter":
+	                this._subscribe(event.tag, ["logs", this._getFilter(event.filter)], function (result) {
+	                    if (result.removed == null) {
+	                        result.removed = false;
+	                    }
+	                    _this.emit(event.filter, _this.formatter.filterLog(result));
+	                });
+	                break;
+	            case "tx": {
+	                var emitReceipt_1 = function (event) {
+	                    var hash = event.hash;
+	                    _this.getTransactionReceipt(hash).then(function (receipt) {
+	                        if (!receipt) {
+	                            return;
+	                        }
+	                        _this.emit(hash, receipt);
+	                    });
+	                };
+	                // In case it is already mined
+	                emitReceipt_1(event);
+	                // To keep things simple, we start up a single newHeads subscription
+	                // to keep an eye out for transactions we are watching for.
+	                // Starting a subscription for an event (i.e. "tx") that is already
+	                // running is (basically) a nop.
+	                this._subscribe("tx", ["newHeads", {}], function (result) {
+	                    _this._events.filter(function (e) { return (e.type === "tx"); }).forEach(emitReceipt_1);
+	                });
+	                break;
+	            }
+	            // Nothing is needed
+	            case "debug":
+	            case "error":
+	                break;
+	            default:
+	                console.log("unhandled:", event);
+	                break;
+	        }
+	    };
+	    WebSocketProvider.prototype._stopEvent = function (event) {
+	        var _this = this;
+	        var tag = event.tag;
+	        if (event.type === "tx") {
+	            // There are remaining transaction event listeners
+	            if (this._events.filter(function (e) { return (e.type === "tx"); }).length) {
+	                return;
+	            }
+	            tag = "tx";
+	        }
+	        else if (this.listenerCount(event.event)) {
+	            // There are remaining event listeners
+	            return;
+	        }
+	        var subId = this._subIds[tag];
+	        if (!subId) {
+	            return;
+	        }
+	        delete this._subIds[tag];
+	        subId.then(function (subId) {
+	            if (!_this._subs[subId]) {
+	                return;
+	            }
+	            delete _this._subs[subId];
+	            _this.send("eth_unsubscribe", [subId]);
+	        });
+	    };
+	    return WebSocketProvider;
 	}(jsonRpcProvider.JsonRpcProvider));
-	exports.IpcProvider = IpcProvider;
+	exports.WebSocketProvider = WebSocketProvider;
 	});
 
-	var ipcProvider$1 = unwrapExports(ipcProvider);
-	var ipcProvider_1 = ipcProvider.IpcProvider;
+	var websocketProvider$1 = unwrapExports(websocketProvider);
+	var websocketProvider_1 = websocketProvider.WebSocketProvider;
 
 	var infuraProvider = createCommonjsModule(function (module, exports) {
 	"use strict";
@@ -21146,7 +21846,8 @@
 	Object.defineProperty(exports, "__esModule", { value: true });
 
 
-	var logger = new lib.Logger(_version$G.version);
+
+	var logger = new lib.Logger(_version$I.version);
 
 	var defaultProjectId = "84842078b09946638c03157f83405213";
 	var InfuraProvider = /** @class */ (function (_super) {
@@ -21154,6 +21855,17 @@
 	    function InfuraProvider() {
 	        return _super !== null && _super.apply(this, arguments) || this;
 	    }
+	    InfuraProvider.getWebSocketProvider = function (network, apiKey) {
+	        var provider = new InfuraProvider(network, apiKey);
+	        var connection = provider.connection;
+	        if (connection.password) {
+	            logger.throwError("INFURA WebSocket project secrets unsupported", lib.Logger.errors.UNSUPPORTED_OPERATION, {
+	                operation: "InfuraProvider.getWebSocketProvider()"
+	            });
+	        }
+	        var url = connection.url.replace(/^http/i, "ws").replace("/v3/", "/ws/v3/");
+	        return new websocketProvider.WebSocketProvider(url, network);
+	    };
 	    InfuraProvider.getApiKey = function (apiKey) {
 	        var apiKeyObj = {
 	            apiKey: defaultProjectId,
@@ -21242,7 +21954,7 @@
 
 
 
-	var logger = new lib.Logger(_version$G.version);
+	var logger = new lib.Logger(_version$I.version);
 	// Special API key provided by Nodesmith for ethers.js
 	var defaultApiKey = "ETHERS_JS_SHARED";
 	var NodesmithProvider = /** @class */ (function (_super) {
@@ -21307,61 +22019,101 @@
 
 
 
-	var logger = new lib.Logger(_version$G.version);
+	var logger = new lib.Logger(_version$I.version);
 
-	var Web3Provider = /** @class */ (function (_super) {
-	    __extends(Web3Provider, _super);
-	    function Web3Provider(web3Provider, network) {
-	        var _newTarget = this.constructor;
-	        var _this = this;
-	        logger.checkNew(_newTarget, Web3Provider);
-	        // HTTP has a host; IPC has a path.
-	        _this = _super.call(this, web3Provider.host || web3Provider.path || "", network) || this;
-	        if (web3Provider) {
-	            if (web3Provider.sendAsync) {
-	                _this._sendAsync = web3Provider.sendAsync.bind(web3Provider);
-	            }
-	            else if (web3Provider.send) {
-	                _this._sendAsync = web3Provider.send.bind(web3Provider);
-	            }
-	        }
-	        if (!_this._sendAsync) {
-	            logger.throwArgumentError("invalid web3Provider", "web3Provider", web3Provider);
-	        }
-	        lib$3.defineReadOnly(_this, "provider", web3Provider);
-	        return _this;
-	    }
-	    Web3Provider.prototype.send = function (method, params) {
-	        var _this = this;
+	var _nextId = 1;
+	function buildWeb3LegacyFetcher(provider, sendFunc) {
+	    return function (method, params) {
 	        // Metamask complains about eth_sign (and on some versions hangs)
-	        if (method == "eth_sign" && this.provider.isMetaMask) {
+	        if (method == "eth_sign" && provider.isMetaMask) {
 	            // https://github.com/ethereum/go-ethereum/wiki/Management-APIs#personal_sign
 	            method = "personal_sign";
 	            params = [params[1], params[0]];
 	        }
+	        var request = {
+	            method: method,
+	            params: params,
+	            id: (_nextId++),
+	            jsonrpc: "2.0"
+	        };
 	        return new Promise(function (resolve, reject) {
-	            var request = {
-	                method: method,
-	                params: params,
-	                id: (_this._nextId++),
-	                jsonrpc: "2.0"
-	            };
-	            _this._sendAsync(request, function (error, result) {
+	            sendFunc(request, function (error, result) {
 	                if (error) {
-	                    reject(error);
-	                    return;
+	                    return reject(error);
 	                }
 	                if (result.error) {
-	                    // @TODO: not any
 	                    var error_1 = new Error(result.error.message);
 	                    error_1.code = result.error.code;
 	                    error_1.data = result.error.data;
-	                    reject(error_1);
-	                    return;
+	                    return reject(error_1);
 	                }
 	                resolve(result.result);
 	            });
 	        });
+	    };
+	}
+	function buildEip1193Fetcher(provider) {
+	    return function (method, params) {
+	        if (params == null) {
+	            params = [];
+	        }
+	        // Metamask complains about eth_sign (and on some versions hangs)
+	        if (method == "eth_sign" && provider.isMetaMask) {
+	            // https://github.com/ethereum/go-ethereum/wiki/Management-APIs#personal_sign
+	            method = "personal_sign";
+	            params = [params[1], params[0]];
+	        }
+	        return provider.request({ method: method, params: params });
+	    };
+	}
+	var Web3Provider = /** @class */ (function (_super) {
+	    __extends(Web3Provider, _super);
+	    function Web3Provider(provider, network) {
+	        var _newTarget = this.constructor;
+	        var _this = this;
+	        logger.checkNew(_newTarget, Web3Provider);
+	        if (provider == null) {
+	            logger.throwArgumentError("missing provider", "provider", provider);
+	        }
+	        var path = null;
+	        var jsonRpcFetchFunc = null;
+	        var subprovider = null;
+	        if (typeof (provider) === "function") {
+	            path = "unknown:";
+	            jsonRpcFetchFunc = provider;
+	        }
+	        else {
+	            path = provider.host || provider.path || "";
+	            if (!path && provider.isMetaMask) {
+	                path = "metamask";
+	            }
+	            subprovider = provider;
+	            if (provider.request) {
+	                if (path === "") {
+	                    path = "eip-1193:";
+	                }
+	                jsonRpcFetchFunc = buildEip1193Fetcher(provider);
+	            }
+	            else if (provider.sendAsync) {
+	                jsonRpcFetchFunc = buildWeb3LegacyFetcher(provider, provider.sendAsync.bind(provider));
+	            }
+	            else if (provider.send) {
+	                jsonRpcFetchFunc = buildWeb3LegacyFetcher(provider, provider.send.bind(provider));
+	            }
+	            else {
+	                logger.throwArgumentError("unsupported provider", "provider", provider);
+	            }
+	            if (!path) {
+	                path = "unknown:";
+	            }
+	        }
+	        _this = _super.call(this, path, network) || this;
+	        lib$3.defineReadOnly(_this, "jsonRpcFetchFunc", jsonRpcFetchFunc);
+	        lib$3.defineReadOnly(_this, "provider", subprovider);
+	        return _this;
+	    }
+	    Web3Provider.prototype.send = function (method, params) {
+	        return this.jsonRpcFetchFunc(method, params);
 	    };
 	    return Web3Provider;
 	}(jsonRpcProvider.JsonRpcProvider));
@@ -21389,7 +22141,7 @@
 
 	exports.FallbackProvider = fallbackProvider.FallbackProvider;
 
-	exports.IpcProvider = ipcProvider.IpcProvider;
+	exports.IpcProvider = browserIpcProvider.IpcProvider;
 
 	exports.InfuraProvider = infuraProvider.InfuraProvider;
 
@@ -21400,10 +22152,12 @@
 
 	exports.Web3Provider = web3Provider.Web3Provider;
 
+	exports.WebSocketProvider = websocketProvider.WebSocketProvider;
+
 	exports.Formatter = formatter.Formatter;
 
 
-	var logger = new lib.Logger(_version$G.version);
+	var logger = new lib.Logger(_version$I.version);
 	////////////////////////
 	// Helper Functions
 	function getDefaultProvider(network, options) {
@@ -21426,7 +22180,7 @@
 	        JsonRpcProvider: jsonRpcProvider.JsonRpcProvider,
 	        NodesmithProvider: nodesmithProvider.NodesmithProvider,
 	        Web3Provider: web3Provider.Web3Provider,
-	        IpcProvider: ipcProvider.IpcProvider,
+	        IpcProvider: browserIpcProvider.IpcProvider,
 	    }, options);
 	}
 	exports.getDefaultProvider = getDefaultProvider;
@@ -21434,20 +22188,21 @@
 
 	var index$m = unwrapExports(lib$m);
 	var lib_1$m = lib$m.Provider;
-	var lib_2$j = lib$m.getNetwork;
-	var lib_3$e = lib$m.BaseProvider;
+	var lib_2$k = lib$m.getNetwork;
+	var lib_3$f = lib$m.BaseProvider;
 	var lib_4$c = lib$m.AlchemyProvider;
 	var lib_5$b = lib$m.CloudflareProvider;
 	var lib_6$7 = lib$m.EtherscanProvider;
 	var lib_7$6 = lib$m.FallbackProvider;
-	var lib_8$4 = lib$m.IpcProvider;
-	var lib_9$4 = lib$m.InfuraProvider;
+	var lib_8$5 = lib$m.IpcProvider;
+	var lib_9$5 = lib$m.InfuraProvider;
 	var lib_10$3 = lib$m.JsonRpcProvider;
-	var lib_11$1 = lib$m.JsonRpcSigner;
-	var lib_12$1 = lib$m.NodesmithProvider;
-	var lib_13$1 = lib$m.Web3Provider;
-	var lib_14$1 = lib$m.Formatter;
-	var lib_15$1 = lib$m.getDefaultProvider;
+	var lib_11$2 = lib$m.JsonRpcSigner;
+	var lib_12$2 = lib$m.NodesmithProvider;
+	var lib_13$2 = lib$m.Web3Provider;
+	var lib_14$1 = lib$m.WebSocketProvider;
+	var lib_15$1 = lib$m.Formatter;
+	var lib_16$1 = lib$m.getDefaultProvider;
 
 	var lib$n = createCommonjsModule(function (module, exports) {
 	"use strict";
@@ -21545,17 +22300,17 @@
 
 	var index$n = unwrapExports(lib$n);
 	var lib_1$n = lib$n.pack;
-	var lib_2$k = lib$n.keccak256;
-	var lib_3$f = lib$n.sha256;
+	var lib_2$l = lib$n.keccak256;
+	var lib_3$g = lib$n.sha256;
 
-	var _version$I = createCommonjsModule(function (module, exports) {
+	var _version$K = createCommonjsModule(function (module, exports) {
 	"use strict";
 	Object.defineProperty(exports, "__esModule", { value: true });
-	exports.version = "units/5.0.0-beta.132";
+	exports.version = "units/5.0.0-beta.133";
 	});
 
-	var _version$J = unwrapExports(_version$I);
-	var _version_1$m = _version$I.version;
+	var _version$L = unwrapExports(_version$K);
+	var _version_1$n = _version$K.version;
 
 	var lib$o = createCommonjsModule(function (module, exports) {
 	"use strict";
@@ -21563,7 +22318,7 @@
 
 
 
-	var logger = new lib.Logger(_version$I.version);
+	var logger = new lib.Logger(_version$K.version);
 	var names = [
 	    "wei",
 	    "kwei",
@@ -21645,8 +22400,8 @@
 
 	var index$o = unwrapExports(lib$o);
 	var lib_1$o = lib$o.commify;
-	var lib_2$l = lib$o.formatUnits;
-	var lib_3$g = lib$o.parseUnits;
+	var lib_2$m = lib$o.formatUnits;
+	var lib_3$h = lib$o.parseUnits;
 	var lib_4$d = lib$o.formatEther;
 	var lib_5$c = lib$o.parseEther;
 
@@ -21662,6 +22417,7 @@
 	Object.defineProperty(exports, "__esModule", { value: true });
 
 	exports.AbiCoder = lib$a.AbiCoder;
+	exports.checkResultErrors = lib$a.checkResultErrors;
 	exports.defaultAbiCoder = lib$a.defaultAbiCoder;
 	exports.EventFragment = lib$a.EventFragment;
 	exports.FormatTypes = lib$a.FormatTypes;
@@ -21713,13 +22469,17 @@
 
 	exports.Logger = lib.Logger;
 
+	exports.computeHmac = browser.computeHmac;
+	exports.ripemd160 = browser.ripemd160;
 	exports.sha256 = browser.sha256;
+	exports.sha512 = browser.sha512;
 
 	exports.solidityKeccak256 = lib$n.keccak256;
 	exports.solidityPack = lib$n.pack;
 	exports.soliditySha256 = lib$n.sha256;
 
 	exports.randomBytes = browser$6.randomBytes;
+	exports.shuffled = browser$6.shuffled;
 
 	exports.checkProperties = lib$3.checkProperties;
 	exports.deepCopy = lib$3.deepCopy;
@@ -21769,95 +22529,100 @@
 
 	var utils$4 = unwrapExports(utils$3);
 	var utils_1$3 = utils$3.AbiCoder;
-	var utils_2$1 = utils$3.defaultAbiCoder;
-	var utils_3$1 = utils$3.EventFragment;
-	var utils_4$1 = utils$3.FormatTypes;
-	var utils_5 = utils$3.Fragment;
-	var utils_6 = utils$3.FunctionFragment;
-	var utils_7 = utils$3.Indexed;
-	var utils_8 = utils$3.Interface;
-	var utils_9 = utils$3.ParamType;
-	var utils_10 = utils$3.getAddress;
-	var utils_11 = utils$3.getCreate2Address;
-	var utils_12 = utils$3.getContractAddress;
-	var utils_13 = utils$3.getIcapAddress;
-	var utils_14 = utils$3.isAddress;
-	var utils_15 = utils$3.base64;
-	var utils_16 = utils$3.arrayify;
-	var utils_17 = utils$3.concat;
-	var utils_18 = utils$3.hexDataSlice;
-	var utils_19 = utils$3.hexDataLength;
-	var utils_20 = utils$3.hexlify;
-	var utils_21 = utils$3.hexStripZeros;
-	var utils_22 = utils$3.hexValue;
-	var utils_23 = utils$3.hexZeroPad;
-	var utils_24 = utils$3.isBytes;
-	var utils_25 = utils$3.isBytesLike;
-	var utils_26 = utils$3.isHexString;
-	var utils_27 = utils$3.joinSignature;
-	var utils_28 = utils$3.zeroPad;
-	var utils_29 = utils$3.splitSignature;
-	var utils_30 = utils$3.stripZeros;
-	var utils_31 = utils$3.hashMessage;
-	var utils_32 = utils$3.id;
-	var utils_33 = utils$3.isValidName;
-	var utils_34 = utils$3.namehash;
-	var utils_35 = utils$3.defaultPath;
-	var utils_36 = utils$3.entropyToMnemonic;
-	var utils_37 = utils$3.HDNode;
-	var utils_38 = utils$3.isValidMnemonic;
-	var utils_39 = utils$3.mnemonicToEntropy;
-	var utils_40 = utils$3.mnemonicToSeed;
-	var utils_41 = utils$3.getJsonWalletAddress;
-	var utils_42 = utils$3.keccak256;
-	var utils_43 = utils$3.Logger;
-	var utils_44 = utils$3.sha256;
-	var utils_45 = utils$3.solidityKeccak256;
-	var utils_46 = utils$3.solidityPack;
-	var utils_47 = utils$3.soliditySha256;
-	var utils_48 = utils$3.randomBytes;
-	var utils_49 = utils$3.checkProperties;
-	var utils_50 = utils$3.deepCopy;
-	var utils_51 = utils$3.defineReadOnly;
-	var utils_52 = utils$3.getStatic;
-	var utils_53 = utils$3.resolveProperties;
-	var utils_54 = utils$3.shallowCopy;
-	var utils_55 = utils$3.RLP;
-	var utils_56 = utils$3.computePublicKey;
-	var utils_57 = utils$3.recoverPublicKey;
-	var utils_58 = utils$3.SigningKey;
-	var utils_59 = utils$3.formatBytes32String;
-	var utils_60 = utils$3.nameprep;
-	var utils_61 = utils$3.parseBytes32String;
-	var utils_62 = utils$3._toEscapedUtf8String;
-	var utils_63 = utils$3.toUtf8Bytes;
-	var utils_64 = utils$3.toUtf8CodePoints;
-	var utils_65 = utils$3.toUtf8String;
-	var utils_66 = utils$3.Utf8ErrorFuncs;
-	var utils_67 = utils$3.computeAddress;
-	var utils_68 = utils$3.parseTransaction;
-	var utils_69 = utils$3.recoverAddress;
-	var utils_70 = utils$3.serializeTransaction;
-	var utils_71 = utils$3.commify;
-	var utils_72 = utils$3.formatEther;
-	var utils_73 = utils$3.parseEther;
-	var utils_74 = utils$3.formatUnits;
-	var utils_75 = utils$3.parseUnits;
-	var utils_76 = utils$3.verifyMessage;
-	var utils_77 = utils$3.fetchJson;
-	var utils_78 = utils$3.poll;
-	var utils_79 = utils$3.SupportedAlgorithm;
-	var utils_80 = utils$3.UnicodeNormalizationForm;
-	var utils_81 = utils$3.Utf8ErrorReason;
+	var utils_2$1 = utils$3.checkResultErrors;
+	var utils_3$1 = utils$3.defaultAbiCoder;
+	var utils_4$1 = utils$3.EventFragment;
+	var utils_5 = utils$3.FormatTypes;
+	var utils_6 = utils$3.Fragment;
+	var utils_7 = utils$3.FunctionFragment;
+	var utils_8 = utils$3.Indexed;
+	var utils_9 = utils$3.Interface;
+	var utils_10 = utils$3.ParamType;
+	var utils_11 = utils$3.getAddress;
+	var utils_12 = utils$3.getCreate2Address;
+	var utils_13 = utils$3.getContractAddress;
+	var utils_14 = utils$3.getIcapAddress;
+	var utils_15 = utils$3.isAddress;
+	var utils_16 = utils$3.base64;
+	var utils_17 = utils$3.arrayify;
+	var utils_18 = utils$3.concat;
+	var utils_19 = utils$3.hexDataSlice;
+	var utils_20 = utils$3.hexDataLength;
+	var utils_21 = utils$3.hexlify;
+	var utils_22 = utils$3.hexStripZeros;
+	var utils_23 = utils$3.hexValue;
+	var utils_24 = utils$3.hexZeroPad;
+	var utils_25 = utils$3.isBytes;
+	var utils_26 = utils$3.isBytesLike;
+	var utils_27 = utils$3.isHexString;
+	var utils_28 = utils$3.joinSignature;
+	var utils_29 = utils$3.zeroPad;
+	var utils_30 = utils$3.splitSignature;
+	var utils_31 = utils$3.stripZeros;
+	var utils_32 = utils$3.hashMessage;
+	var utils_33 = utils$3.id;
+	var utils_34 = utils$3.isValidName;
+	var utils_35 = utils$3.namehash;
+	var utils_36 = utils$3.defaultPath;
+	var utils_37 = utils$3.entropyToMnemonic;
+	var utils_38 = utils$3.HDNode;
+	var utils_39 = utils$3.isValidMnemonic;
+	var utils_40 = utils$3.mnemonicToEntropy;
+	var utils_41 = utils$3.mnemonicToSeed;
+	var utils_42 = utils$3.getJsonWalletAddress;
+	var utils_43 = utils$3.keccak256;
+	var utils_44 = utils$3.Logger;
+	var utils_45 = utils$3.computeHmac;
+	var utils_46 = utils$3.ripemd160;
+	var utils_47 = utils$3.sha256;
+	var utils_48 = utils$3.sha512;
+	var utils_49 = utils$3.solidityKeccak256;
+	var utils_50 = utils$3.solidityPack;
+	var utils_51 = utils$3.soliditySha256;
+	var utils_52 = utils$3.randomBytes;
+	var utils_53 = utils$3.shuffled;
+	var utils_54 = utils$3.checkProperties;
+	var utils_55 = utils$3.deepCopy;
+	var utils_56 = utils$3.defineReadOnly;
+	var utils_57 = utils$3.getStatic;
+	var utils_58 = utils$3.resolveProperties;
+	var utils_59 = utils$3.shallowCopy;
+	var utils_60 = utils$3.RLP;
+	var utils_61 = utils$3.computePublicKey;
+	var utils_62 = utils$3.recoverPublicKey;
+	var utils_63 = utils$3.SigningKey;
+	var utils_64 = utils$3.formatBytes32String;
+	var utils_65 = utils$3.nameprep;
+	var utils_66 = utils$3.parseBytes32String;
+	var utils_67 = utils$3._toEscapedUtf8String;
+	var utils_68 = utils$3.toUtf8Bytes;
+	var utils_69 = utils$3.toUtf8CodePoints;
+	var utils_70 = utils$3.toUtf8String;
+	var utils_71 = utils$3.Utf8ErrorFuncs;
+	var utils_72 = utils$3.computeAddress;
+	var utils_73 = utils$3.parseTransaction;
+	var utils_74 = utils$3.recoverAddress;
+	var utils_75 = utils$3.serializeTransaction;
+	var utils_76 = utils$3.commify;
+	var utils_77 = utils$3.formatEther;
+	var utils_78 = utils$3.parseEther;
+	var utils_79 = utils$3.formatUnits;
+	var utils_80 = utils$3.parseUnits;
+	var utils_81 = utils$3.verifyMessage;
+	var utils_82 = utils$3.fetchJson;
+	var utils_83 = utils$3.poll;
+	var utils_84 = utils$3.SupportedAlgorithm;
+	var utils_85 = utils$3.UnicodeNormalizationForm;
+	var utils_86 = utils$3.Utf8ErrorReason;
 
-	var _version$K = createCommonjsModule(function (module, exports) {
+	var _version$M = createCommonjsModule(function (module, exports) {
 	"use strict";
 	Object.defineProperty(exports, "__esModule", { value: true });
-	exports.version = "ethers/5.0.0-beta.173";
+	exports.version = "ethers/5.0.0-beta.186";
 	});
 
-	var _version$L = unwrapExports(_version$K);
-	var _version_1$n = _version$K.version;
+	var _version$N = unwrapExports(_version$M);
+	var _version_1$o = _version$M.version;
 
 	var ethers = createCommonjsModule(function (module, exports) {
 	"use strict";
@@ -21892,14 +22657,13 @@
 	var utils = __importStar(utils$3);
 	exports.utils = utils;
 
-	var errors = lib.Logger.errors;
-	exports.errors = errors;
+	exports.errors = lib.ErrorCode;
 	////////////////////////
 	// Compile-Time Constants
 	// This is generated by "npm run dist"
 
-	exports.version = _version$K.version;
-	var logger = new lib.Logger(_version$K.version);
+	exports.version = _version$M.version;
+	var logger = new lib.Logger(_version$M.version);
 	exports.logger = logger;
 	});
 
@@ -21964,40 +22728,40 @@
 
 	var index$p = unwrapExports(lib$p);
 	var lib_1$p = lib$p.ethers;
-	var lib_2$m = lib$p.Signer;
-	var lib_3$h = lib$p.Wallet;
+	var lib_2$n = lib$p.Signer;
+	var lib_3$i = lib$p.Wallet;
 	var lib_4$e = lib$p.VoidSigner;
 	var lib_5$d = lib$p.getDefaultProvider;
 	var lib_6$8 = lib$p.providers;
 	var lib_7$7 = lib$p.Contract;
-	var lib_8$5 = lib$p.ContractFactory;
-	var lib_9$5 = lib$p.BigNumber;
+	var lib_8$6 = lib$p.ContractFactory;
+	var lib_9$6 = lib$p.BigNumber;
 	var lib_10$4 = lib$p.FixedNumber;
-	var lib_11$2 = lib$p.constants;
-	var lib_12$2 = lib$p.errors;
-	var lib_13$2 = lib$p.logger;
+	var lib_11$3 = lib$p.constants;
+	var lib_12$3 = lib$p.errors;
+	var lib_13$3 = lib$p.logger;
 	var lib_14$2 = lib$p.utils;
 	var lib_15$2 = lib$p.wordlists;
-	var lib_16$1 = lib$p.version;
+	var lib_16$2 = lib$p.version;
 	var lib_17 = lib$p.Wordlist;
 
-	exports.BigNumber = lib_9$5;
+	exports.BigNumber = lib_9$6;
 	exports.Contract = lib_7$7;
-	exports.ContractFactory = lib_8$5;
+	exports.ContractFactory = lib_8$6;
 	exports.FixedNumber = lib_10$4;
-	exports.Signer = lib_2$m;
+	exports.Signer = lib_2$n;
 	exports.VoidSigner = lib_4$e;
-	exports.Wallet = lib_3$h;
+	exports.Wallet = lib_3$i;
 	exports.Wordlist = lib_17;
-	exports.constants = lib_11$2;
+	exports.constants = lib_11$3;
 	exports.default = index$p;
-	exports.errors = lib_12$2;
+	exports.errors = lib_12$3;
 	exports.ethers = lib_1$p;
 	exports.getDefaultProvider = lib_5$d;
-	exports.logger = lib_13$2;
+	exports.logger = lib_13$3;
 	exports.providers = lib_6$8;
 	exports.utils = lib_14$2;
-	exports.version = lib_16$1;
+	exports.version = lib_16$2;
 	exports.wordlists = lib_15$2;
 
 	Object.defineProperty(exports, '__esModule', { value: true });

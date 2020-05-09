@@ -61,9 +61,7 @@ var logger = new logger_1.Logger(_version_1.version);
 var base_provider_1 = require("./base-provider");
 function timer(timeout) {
     return new Promise(function (resolve) {
-        setTimeout(function () {
-            resolve();
-        }, timeout);
+        setTimeout(resolve, timeout);
     });
 }
 function getResult(payload) {
@@ -252,80 +250,85 @@ var JsonRpcProvider = /** @class */ (function (_super) {
         var _newTarget = this.constructor;
         var _this = this;
         logger.checkNew(_newTarget, JsonRpcProvider);
-        var getNetwork = properties_1.getStatic((_newTarget), "getNetwork");
-        // One parameter, but it is a network name, so swap it with the URL
-        if (typeof (url) === "string") {
-            if (network === null) {
-                var checkNetwork = getNetwork(url);
-                network = checkNetwork;
-                url = null;
-            }
-        }
-        if (network) {
-            // The network has been specified explicitly, we can use it
-            _this = _super.call(this, network) || this;
-        }
-        else {
-            // The network is unknown, query the JSON-RPC for it
-            var ready = new Promise(function (resolve, reject) {
-                setTimeout(function () { return __awaiter(_this, void 0, void 0, function () {
-                    var chainId, error_1, error_2;
-                    return __generator(this, function (_a) {
-                        switch (_a.label) {
-                            case 0:
-                                chainId = null;
-                                _a.label = 1;
-                            case 1:
-                                _a.trys.push([1, 3, , 8]);
-                                return [4 /*yield*/, this.send("eth_chainId", [])];
-                            case 2:
-                                chainId = _a.sent();
-                                return [3 /*break*/, 8];
-                            case 3:
-                                error_1 = _a.sent();
-                                _a.label = 4;
-                            case 4:
-                                _a.trys.push([4, 6, , 7]);
-                                return [4 /*yield*/, this.send("net_version", [])];
-                            case 5:
-                                chainId = _a.sent();
-                                return [3 /*break*/, 7];
-                            case 6:
-                                error_2 = _a.sent();
-                                return [3 /*break*/, 7];
-                            case 7: return [3 /*break*/, 8];
-                            case 8:
-                                if (chainId != null) {
-                                    try {
-                                        return [2 /*return*/, resolve(getNetwork(bignumber_1.BigNumber.from(chainId).toNumber()))];
-                                    }
-                                    catch (error) {
-                                        console.log("e3", error);
-                                    }
-                                }
-                                reject(logger.makeError("could not detect network", logger_1.Logger.errors.NETWORK_ERROR));
-                                return [2 /*return*/];
-                        }
+        var networkOrReady = network;
+        // The network is unknown, query the JSON-RPC for it
+        if (networkOrReady == null) {
+            networkOrReady = new Promise(function (resolve, reject) {
+                setTimeout(function () {
+                    _this.detectNetwork().then(function (network) {
+                        resolve(network);
+                    }, function (error) {
+                        reject(error);
                     });
-                }); }, 0);
+                }, 0);
             });
-            _this = _super.call(this, ready) || this;
         }
+        _this = _super.call(this, networkOrReady) || this;
         // Default URL
         if (!url) {
-            url = "http:/" + "/localhost:8545";
+            url = properties_1.getStatic(_this.constructor, "defaultUrl")();
         }
         if (typeof (url) === "string") {
-            _this.connection = Object.freeze({
+            properties_1.defineReadOnly(_this, "connection", Object.freeze({
                 url: url
-            });
+            }));
         }
         else {
-            _this.connection = Object.freeze(properties_1.shallowCopy(url));
+            properties_1.defineReadOnly(_this, "connection", Object.freeze(properties_1.shallowCopy(url)));
         }
         _this._nextId = 42;
         return _this;
     }
+    JsonRpcProvider.defaultUrl = function () {
+        return "http:/\/localhost:8545";
+    };
+    JsonRpcProvider.prototype.detectNetwork = function () {
+        return __awaiter(this, void 0, void 0, function () {
+            var chainId, error_1, error_2, getNetwork;
+            return __generator(this, function (_a) {
+                switch (_a.label) {
+                    case 0: return [4 /*yield*/, timer(0)];
+                    case 1:
+                        _a.sent();
+                        chainId = null;
+                        _a.label = 2;
+                    case 2:
+                        _a.trys.push([2, 4, , 9]);
+                        return [4 /*yield*/, this.send("eth_chainId", [])];
+                    case 3:
+                        chainId = _a.sent();
+                        return [3 /*break*/, 9];
+                    case 4:
+                        error_1 = _a.sent();
+                        _a.label = 5;
+                    case 5:
+                        _a.trys.push([5, 7, , 8]);
+                        return [4 /*yield*/, this.send("net_version", [])];
+                    case 6:
+                        chainId = _a.sent();
+                        return [3 /*break*/, 8];
+                    case 7:
+                        error_2 = _a.sent();
+                        return [3 /*break*/, 8];
+                    case 8: return [3 /*break*/, 9];
+                    case 9:
+                        if (chainId != null) {
+                            getNetwork = properties_1.getStatic(this.constructor, "getNetwork");
+                            try {
+                                return [2 /*return*/, getNetwork(bignumber_1.BigNumber.from(chainId).toNumber())];
+                            }
+                            catch (error) {
+                                return [2 /*return*/, logger.throwError("could not detect network", logger_1.Logger.errors.NETWORK_ERROR, {
+                                        chainId: chainId,
+                                        serverError: error
+                                    })];
+                            }
+                        }
+                        return [2 /*return*/, logger.throwError("could not detect network", logger_1.Logger.errors.NETWORK_ERROR)];
+                }
+            });
+        });
+    };
     JsonRpcProvider.prototype.getSigner = function (addressOrIndex) {
         return new JsonRpcSigner(_constructorGuard, this, addressOrIndex);
     };
@@ -359,69 +362,94 @@ var JsonRpcProvider = /** @class */ (function (_super) {
                 provider: _this
             });
             return result;
+        }, function (error) {
+            _this.emit("debug", {
+                action: "response",
+                error: error,
+                request: request,
+                provider: _this
+            });
+            throw error;
         });
     };
-    JsonRpcProvider.prototype.perform = function (method, params) {
+    JsonRpcProvider.prototype.prepareRequest = function (method, params) {
         switch (method) {
             case "getBlockNumber":
-                return this.send("eth_blockNumber", []);
+                return ["eth_blockNumber", []];
             case "getGasPrice":
-                return this.send("eth_gasPrice", []);
+                return ["eth_gasPrice", []];
             case "getBalance":
-                return this.send("eth_getBalance", [getLowerCase(params.address), params.blockTag]);
+                return ["eth_getBalance", [getLowerCase(params.address), params.blockTag]];
             case "getTransactionCount":
-                return this.send("eth_getTransactionCount", [getLowerCase(params.address), params.blockTag]);
+                return ["eth_getTransactionCount", [getLowerCase(params.address), params.blockTag]];
             case "getCode":
-                return this.send("eth_getCode", [getLowerCase(params.address), params.blockTag]);
+                return ["eth_getCode", [getLowerCase(params.address), params.blockTag]];
             case "getStorageAt":
-                return this.send("eth_getStorageAt", [getLowerCase(params.address), params.position, params.blockTag]);
+                return ["eth_getStorageAt", [getLowerCase(params.address), params.position, params.blockTag]];
             case "sendTransaction":
-                return this.send("eth_sendRawTransaction", [params.signedTransaction]).catch(function (error) {
-                    if (error.responseText) {
-                        // "insufficient funds for gas * price + value"
-                        if (error.responseText.indexOf("insufficient funds") > 0) {
-                            logger.throwError("insufficient funds", logger_1.Logger.errors.INSUFFICIENT_FUNDS, {});
-                        }
-                        // "nonce too low"
-                        if (error.responseText.indexOf("nonce too low") > 0) {
-                            logger.throwError("nonce has already been used", logger_1.Logger.errors.NONCE_EXPIRED, {});
-                        }
-                        // "replacement transaction underpriced"
-                        if (error.responseText.indexOf("replacement transaction underpriced") > 0) {
-                            logger.throwError("replacement fee too low", logger_1.Logger.errors.REPLACEMENT_UNDERPRICED, {});
-                        }
-                    }
-                    throw error;
-                });
+                return ["eth_sendRawTransaction", [params.signedTransaction]];
             case "getBlock":
                 if (params.blockTag) {
-                    return this.send("eth_getBlockByNumber", [params.blockTag, !!params.includeTransactions]);
+                    return ["eth_getBlockByNumber", [params.blockTag, !!params.includeTransactions]];
                 }
                 else if (params.blockHash) {
-                    return this.send("eth_getBlockByHash", [params.blockHash, !!params.includeTransactions]);
+                    return ["eth_getBlockByHash", [params.blockHash, !!params.includeTransactions]];
                 }
-                return logger.throwArgumentError("invalid block tag or block hash", "params", params);
+                return null;
             case "getTransaction":
-                return this.send("eth_getTransactionByHash", [params.transactionHash]);
+                return ["eth_getTransactionByHash", [params.transactionHash]];
             case "getTransactionReceipt":
-                return this.send("eth_getTransactionReceipt", [params.transactionHash]);
+                return ["eth_getTransactionReceipt", [params.transactionHash]];
             case "call": {
                 var hexlifyTransaction = properties_1.getStatic(this.constructor, "hexlifyTransaction");
-                return this.send("eth_call", [hexlifyTransaction(params.transaction, { from: true }), params.blockTag]);
+                return ["eth_call", [hexlifyTransaction(params.transaction, { from: true }), params.blockTag]];
             }
             case "estimateGas": {
                 var hexlifyTransaction = properties_1.getStatic(this.constructor, "hexlifyTransaction");
-                return this.send("eth_estimateGas", [hexlifyTransaction(params.transaction, { from: true })]);
+                return ["eth_estimateGas", [hexlifyTransaction(params.transaction, { from: true })]];
             }
             case "getLogs":
                 if (params.filter && params.filter.address != null) {
                     params.filter.address = getLowerCase(params.filter.address);
                 }
-                return this.send("eth_getLogs", [params.filter]);
+                return ["eth_getLogs", [params.filter]];
             default:
                 break;
         }
-        return logger.throwError(method + " not implemented", logger_1.Logger.errors.NOT_IMPLEMENTED, { operation: method });
+        return null;
+    };
+    JsonRpcProvider.prototype.perform = function (method, params) {
+        var args = this.prepareRequest(method, params);
+        if (args == null) {
+            logger.throwError(method + " not implemented", logger_1.Logger.errors.NOT_IMPLEMENTED, { operation: method });
+        }
+        // We need a little extra logic to process errors from sendTransaction
+        if (method === "sendTransaction") {
+            return this.send(args[0], args[1]).catch(function (error) {
+                if (error.responseText) {
+                    // "insufficient funds for gas * price + value"
+                    if (error.responseText.indexOf("insufficient funds") > 0) {
+                        logger.throwError("insufficient funds", logger_1.Logger.errors.INSUFFICIENT_FUNDS, {});
+                    }
+                    // "nonce too low"
+                    if (error.responseText.indexOf("nonce too low") > 0) {
+                        logger.throwError("nonce has already been used", logger_1.Logger.errors.NONCE_EXPIRED, {});
+                    }
+                    // "replacement transaction underpriced"
+                    if (error.responseText.indexOf("replacement transaction underpriced") > 0) {
+                        logger.throwError("replacement fee too low", logger_1.Logger.errors.REPLACEMENT_UNDERPRICED, {});
+                    }
+                }
+                throw error;
+            });
+        }
+        return this.send(args[0], args[1]);
+    };
+    JsonRpcProvider.prototype._startEvent = function (event) {
+        if (event.tag === "pending") {
+            this._startPending();
+        }
+        _super.prototype._startEvent.call(this, event);
     };
     JsonRpcProvider.prototype._startPending = function () {
         if (this._pendingFilter != null) {
@@ -463,15 +491,21 @@ var JsonRpcProvider = /** @class */ (function (_super) {
             return filterId;
         }).catch(function (error) { });
     };
-    JsonRpcProvider.prototype._stopPending = function () {
-        this._pendingFilter = null;
+    JsonRpcProvider.prototype._stopEvent = function (event) {
+        if (event.tag === "pending" && this.listenerCount("pending") === 0) {
+            this._pendingFilter = null;
+        }
+        _super.prototype._stopEvent.call(this, event);
     };
     // Convert an ethers.js transaction into a JSON-RPC transaction
     //  - gasLimit => gas
     //  - All values hexlified
     //  - All numeric values zero-striped
+    //  - All addresses are lowercased
     // NOTE: This allows a TransactionRequest, but all values should be resolved
     //       before this is called
+    // @TODO: This will likely be removed in future versions and prepareRequest
+    //        will be the preferred method for this.
     JsonRpcProvider.hexlifyTransaction = function (transaction, allowExtra) {
         // Check only allowed properties are given
         var allowed = properties_1.shallowCopy(allowedTransactionKeys);

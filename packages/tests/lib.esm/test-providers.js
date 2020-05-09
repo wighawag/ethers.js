@@ -82,7 +82,6 @@ const blockchainData = {
                         ],
                         transactionHash: "0xc6fcb7d00d536e659a4559d2de29afa9e364094438fef3e72ba80728ce1cb616",
                         transactionIndex: 0x39,
-                        transactionLogIndex: 0x0
                     },
                     {
                         address: "0x6090A6e47849629b7245Dfa1Ca21D94cd15878Ef",
@@ -97,7 +96,6 @@ const blockchainData = {
                         ],
                         transactionHash: "0xc6fcb7d00d536e659a4559d2de29afa9e364094438fef3e72ba80728ce1cb616",
                         transactionIndex: 0x39,
-                        transactionLogIndex: 0x1
                     }
                 ],
                 logsBloom: "0x00000000000000040000000000100000010000000000000040000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000200000010000000004000000000000000000000000000000000002000000000000000000000000400000000020000000000000000000000000000000000000004000000000000000000000000000000000000000000000000801000000000000000000000020000000000040000000040000000000000000002000000004000000000000000000000000000000000000000000000010000000000000000000000000000000000200000000000000000",
@@ -129,7 +127,6 @@ const blockchainData = {
                         ],
                         transactionHash: "0x7f1c6a58dc880438236d0b0a4ae166e9e9a038dbea8ec074149bd8b176332cac",
                         transactionIndex: 0x1e,
-                        transactionLogIndex: 0x0
                     }
                 ],
                 logsBloom: "0x00000000000000000000000000000000000000000000000000008000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000000000000000200000000000000008000000000000000000000000000000000000000000000000000000000000000010000000000000000000800000000000000000000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000800000000000000000800000000000000000000000000000000000000",
@@ -254,7 +251,6 @@ const blockchainData = {
                         ],
                         transactionHash: "0x55c477790b105e69e98afadf0505cbda606414b0187356137132bf24945016ce",
                         transactionIndex: 0x0,
-                        transactionLogIndex: 0x0
                     }
                 ],
                 logsBloom: "0x00000000000000800000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000008000000000000000000000000000000000000000000000000000000000000000000000000000000000001000000000000000000000010000000000000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
@@ -282,7 +278,6 @@ const blockchainData = {
                         topics: ["0xb76d0edd90c6a07aa3ff7a222d7f5933e29c6acc660c059c97837f05c4ca1a84"],
                         transactionHash: "0xf724f1d6813f13fb523c5f6af6261d06d41138dd094fff723e09fb0f893f03e6",
                         transactionIndex: 0x2,
-                        transactionLogIndex: 0x0
                     }
                 ],
                 logsBloom: "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000008000000000000000000000000000000000000000000000000000000000000000000008000000000000000000000080000000202000000",
@@ -392,18 +387,20 @@ function equals(name, actual, expected) {
         assert.equal(actual, expected, name + " matches");
     }
 }
+function waiter(duration) {
+    return new Promise((resolve) => {
+        setTimeout(resolve, duration);
+    });
+}
 function testProvider(providerName, networkName) {
+    // Delay (ms) after each test case to prevent the backends from throttling
+    const delay = 1000;
     describe(("Read-Only " + providerName + " (" + networkName + ")"), function () {
+        // Get the Provider based on the name of the provider we are testing and the network
         let provider = null;
         if (networkName === "default") {
             if (providerName === "getDefaultProvider") {
                 provider = ethers.getDefaultProvider();
-            }
-            else if (providerName === "Web3Provider") {
-                //let infuraUrl = (new ethers.providers.InfuraProvider()).connection.url;
-                //provider = new ethers.providers.Web3Provider(new Web3HttpProvider(infuraUrl));
-                //throw new Error("skipping Web3 tests; archos error on npm install");
-                return;
             }
             else {
                 provider = new (ethers.providers)[providerName]();
@@ -413,17 +410,16 @@ function testProvider(providerName, networkName) {
             if (providerName === "getDefaultProvider") {
                 provider = ethers.getDefaultProvider(networkName);
             }
-            else if (providerName === "Web3Provider") {
-                //let infuraUrl = (new ethers.providers.InfuraProvider(networkName)).connection.url;
-                //provider = new ethers.providers.Web3Provider(new Web3HttpProvider(infuraUrl), networkName);
-                //throw new Error("skipping Web3 tests; archos error on npm install");
-                return;
-            }
             else {
                 provider = new (ethers.providers)[providerName](networkName);
             }
         }
         const tests = blockchainData[networkName];
+        // And address test case can have any of the following:
+        // - balance
+        // - code
+        // - storage
+        // - ENS name
         tests.addresses.forEach((test) => {
             if (test.balance) {
                 it(`fetches address balance: ${test.address}`, function () {
@@ -433,6 +429,7 @@ function testProvider(providerName, networkName) {
                     this.timeout(20000);
                     return provider.getBalance(test.address).then((balance) => {
                         equals("Balance", test.balance, balance);
+                        return waiter(delay);
                     });
                 });
             }
@@ -441,14 +438,17 @@ function testProvider(providerName, networkName) {
                     this.timeout(20000);
                     return provider.getCode(test.address).then((code) => {
                         equals("Code", test.code, code);
+                        return waiter(delay);
                     });
                 });
             }
             if (test.storage) {
                 Object.keys(test.storage).forEach((position) => {
                     it(`fetches storage: ${test.address}:${position}`, function () {
+                        this.timeout(20000);
                         return provider.getStorageAt(test.address, bnify(position)).then((value) => {
                             equals("Storage", test.storage[position], value);
+                            return waiter(delay);
                         });
                     });
                 });
@@ -458,6 +458,7 @@ function testProvider(providerName, networkName) {
                     this.timeout(20000);
                     return provider.resolveName(test.name).then((address) => {
                         equals("ENS Name", test.address, address);
+                        return waiter(delay);
                     });
                 });
             }
@@ -468,6 +469,7 @@ function testProvider(providerName, networkName) {
                     for (let key in test) {
                         equals("Block " + key, block[key], test[key]);
                     }
+                    return waiter(delay);
                 });
             }
             it(`fetches block (by number) #${test.number}`, function () {
@@ -495,6 +497,7 @@ function testProvider(providerName, networkName) {
                     for (const key in tx) {
                         equals((title + key), tx[key], expected[key]);
                     }
+                    return waiter(delay);
                 });
             }
             it(`fetches transaction: ${test.hash}`, function () {
@@ -513,6 +516,7 @@ function testProvider(providerName, networkName) {
                         equals((title + key), receipt[key], expected[key]);
                     }
                     //equals(("Receipt " + expected.transactionHash.substring(0, 10)), receipt, expected);
+                    return waiter(delay);
                 });
             }
             it(`fetches transaction receipt: ${test.transactionHash}`, function () {
@@ -540,7 +544,10 @@ function testProvider(providerName, networkName) {
         if (providerName === "NodesmithProvider") {
             return;
         }
-        if (networkName === "goerli" && providerName === "AlchemyProvider") {
+        if (providerName === "CloudflareProvider") {
+            return;
+        }
+        if (providerName === "Web3Provider") {
             return;
         }
         if ((networkName !== "homestead" && networkName !== "default") && providerName === "CloudflareProvider") {

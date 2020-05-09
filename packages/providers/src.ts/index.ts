@@ -27,8 +27,9 @@ import { InfuraProvider } from "./infura-provider";
 import { JsonRpcProvider, JsonRpcSigner } from "./json-rpc-provider";
 import { NodesmithProvider } from "./nodesmith-provider";
 import { Web3Provider } from "./web3-provider";
+import { WebSocketProvider } from "./websocket-provider";
 
-import { AsyncSendable } from "./web3-provider";
+import { ExternalProvider, JsonRpcFetchFunc } from "./web3-provider";
 
 import { Formatter } from "./formatter";
 
@@ -86,6 +87,7 @@ export {
     JsonRpcProvider,
     NodesmithProvider,
     Web3Provider,
+    WebSocketProvider,
 
     IpcProvider,
 
@@ -122,7 +124,8 @@ export {
     TransactionRequest,
     TransactionResponse,
 
-    AsyncSendable,
+    ExternalProvider,
+    JsonRpcFetchFunc,
 
     Network,
     Networkish

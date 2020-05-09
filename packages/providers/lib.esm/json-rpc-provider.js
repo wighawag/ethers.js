@@ -20,9 +20,7 @@ const logger = new Logger(version);
 import { BaseProvider } from "./base-provider";
 function timer(timeout) {
     return new Promise(function (resolve) {
-        setTimeout(function () {
-            resolve();
-        }, timeout);
+        setTimeout(resolve, timeout);
     });
 }
 function getResult(payload) {
@@ -192,59 +190,64 @@ const allowedTransactionKeys = {
 export class JsonRpcProvider extends BaseProvider {
     constructor(url, network) {
         logger.checkNew(new.target, JsonRpcProvider);
-        const getNetwork = getStatic((new.target), "getNetwork");
-        // One parameter, but it is a network name, so swap it with the URL
-        if (typeof (url) === "string") {
-            if (network === null) {
-                const checkNetwork = getNetwork(url);
-                network = checkNetwork;
-                url = null;
-            }
-        }
-        if (network) {
-            // The network has been specified explicitly, we can use it
-            super(network);
-        }
-        else {
-            // The network is unknown, query the JSON-RPC for it
-            const ready = new Promise((resolve, reject) => {
-                setTimeout(() => __awaiter(this, void 0, void 0, function* () {
-                    let chainId = null;
-                    try {
-                        chainId = yield this.send("eth_chainId", []);
-                    }
-                    catch (error) {
-                        try {
-                            chainId = yield this.send("net_version", []);
-                        }
-                        catch (error) { }
-                    }
-                    if (chainId != null) {
-                        try {
-                            return resolve(getNetwork(BigNumber.from(chainId).toNumber()));
-                        }
-                        catch (error) {
-                            console.log("e3", error);
-                        }
-                    }
-                    reject(logger.makeError("could not detect network", Logger.errors.NETWORK_ERROR));
-                }), 0);
+        let networkOrReady = network;
+        // The network is unknown, query the JSON-RPC for it
+        if (networkOrReady == null) {
+            networkOrReady = new Promise((resolve, reject) => {
+                setTimeout(() => {
+                    this.detectNetwork().then((network) => {
+                        resolve(network);
+                    }, (error) => {
+                        reject(error);
+                    });
+                }, 0);
             });
-            super(ready);
         }
+        super(networkOrReady);
         // Default URL
         if (!url) {
-            url = "http:/" + "/localhost:8545";
+            url = getStatic(this.constructor, "defaultUrl")();
         }
         if (typeof (url) === "string") {
-            this.connection = Object.freeze({
+            defineReadOnly(this, "connection", Object.freeze({
                 url: url
-            });
+            }));
         }
         else {
-            this.connection = Object.freeze(shallowCopy(url));
+            defineReadOnly(this, "connection", Object.freeze(shallowCopy(url)));
         }
         this._nextId = 42;
+    }
+    static defaultUrl() {
+        return "http:/\/localhost:8545";
+    }
+    detectNetwork() {
+        return __awaiter(this, void 0, void 0, function* () {
+            yield timer(0);
+            let chainId = null;
+            try {
+                chainId = yield this.send("eth_chainId", []);
+            }
+            catch (error) {
+                try {
+                    chainId = yield this.send("net_version", []);
+                }
+                catch (error) { }
+            }
+            if (chainId != null) {
+                const getNetwork = getStatic(this.constructor, "getNetwork");
+                try {
+                    return getNetwork(BigNumber.from(chainId).toNumber());
+                }
+                catch (error) {
+                    return logger.throwError("could not detect network", Logger.errors.NETWORK_ERROR, {
+                        chainId: chainId,
+                        serverError: error
+                    });
+                }
+            }
+            return logger.throwError("could not detect network", Logger.errors.NETWORK_ERROR);
+        });
     }
     getSigner(addressOrIndex) {
         return new JsonRpcSigner(_constructorGuard, this, addressOrIndex);
@@ -277,69 +280,94 @@ export class JsonRpcProvider extends BaseProvider {
                 provider: this
             });
             return result;
+        }, (error) => {
+            this.emit("debug", {
+                action: "response",
+                error: error,
+                request: request,
+                provider: this
+            });
+            throw error;
         });
     }
-    perform(method, params) {
+    prepareRequest(method, params) {
         switch (method) {
             case "getBlockNumber":
-                return this.send("eth_blockNumber", []);
+                return ["eth_blockNumber", []];
             case "getGasPrice":
-                return this.send("eth_gasPrice", []);
+                return ["eth_gasPrice", []];
             case "getBalance":
-                return this.send("eth_getBalance", [getLowerCase(params.address), params.blockTag]);
+                return ["eth_getBalance", [getLowerCase(params.address), params.blockTag]];
             case "getTransactionCount":
-                return this.send("eth_getTransactionCount", [getLowerCase(params.address), params.blockTag]);
+                return ["eth_getTransactionCount", [getLowerCase(params.address), params.blockTag]];
             case "getCode":
-                return this.send("eth_getCode", [getLowerCase(params.address), params.blockTag]);
+                return ["eth_getCode", [getLowerCase(params.address), params.blockTag]];
             case "getStorageAt":
-                return this.send("eth_getStorageAt", [getLowerCase(params.address), params.position, params.blockTag]);
+                return ["eth_getStorageAt", [getLowerCase(params.address), params.position, params.blockTag]];
             case "sendTransaction":
-                return this.send("eth_sendRawTransaction", [params.signedTransaction]).catch((error) => {
-                    if (error.responseText) {
-                        // "insufficient funds for gas * price + value"
-                        if (error.responseText.indexOf("insufficient funds") > 0) {
-                            logger.throwError("insufficient funds", Logger.errors.INSUFFICIENT_FUNDS, {});
-                        }
-                        // "nonce too low"
-                        if (error.responseText.indexOf("nonce too low") > 0) {
-                            logger.throwError("nonce has already been used", Logger.errors.NONCE_EXPIRED, {});
-                        }
-                        // "replacement transaction underpriced"
-                        if (error.responseText.indexOf("replacement transaction underpriced") > 0) {
-                            logger.throwError("replacement fee too low", Logger.errors.REPLACEMENT_UNDERPRICED, {});
-                        }
-                    }
-                    throw error;
-                });
+                return ["eth_sendRawTransaction", [params.signedTransaction]];
             case "getBlock":
                 if (params.blockTag) {
-                    return this.send("eth_getBlockByNumber", [params.blockTag, !!params.includeTransactions]);
+                    return ["eth_getBlockByNumber", [params.blockTag, !!params.includeTransactions]];
                 }
                 else if (params.blockHash) {
-                    return this.send("eth_getBlockByHash", [params.blockHash, !!params.includeTransactions]);
+                    return ["eth_getBlockByHash", [params.blockHash, !!params.includeTransactions]];
                 }
-                return logger.throwArgumentError("invalid block tag or block hash", "params", params);
+                return null;
             case "getTransaction":
-                return this.send("eth_getTransactionByHash", [params.transactionHash]);
+                return ["eth_getTransactionByHash", [params.transactionHash]];
             case "getTransactionReceipt":
-                return this.send("eth_getTransactionReceipt", [params.transactionHash]);
+                return ["eth_getTransactionReceipt", [params.transactionHash]];
             case "call": {
                 const hexlifyTransaction = getStatic(this.constructor, "hexlifyTransaction");
-                return this.send("eth_call", [hexlifyTransaction(params.transaction, { from: true }), params.blockTag]);
+                return ["eth_call", [hexlifyTransaction(params.transaction, { from: true }), params.blockTag]];
             }
             case "estimateGas": {
                 const hexlifyTransaction = getStatic(this.constructor, "hexlifyTransaction");
-                return this.send("eth_estimateGas", [hexlifyTransaction(params.transaction, { from: true })]);
+                return ["eth_estimateGas", [hexlifyTransaction(params.transaction, { from: true })]];
             }
             case "getLogs":
                 if (params.filter && params.filter.address != null) {
                     params.filter.address = getLowerCase(params.filter.address);
                 }
-                return this.send("eth_getLogs", [params.filter]);
+                return ["eth_getLogs", [params.filter]];
             default:
                 break;
         }
-        return logger.throwError(method + " not implemented", Logger.errors.NOT_IMPLEMENTED, { operation: method });
+        return null;
+    }
+    perform(method, params) {
+        const args = this.prepareRequest(method, params);
+        if (args == null) {
+            logger.throwError(method + " not implemented", Logger.errors.NOT_IMPLEMENTED, { operation: method });
+        }
+        // We need a little extra logic to process errors from sendTransaction
+        if (method === "sendTransaction") {
+            return this.send(args[0], args[1]).catch((error) => {
+                if (error.responseText) {
+                    // "insufficient funds for gas * price + value"
+                    if (error.responseText.indexOf("insufficient funds") > 0) {
+                        logger.throwError("insufficient funds", Logger.errors.INSUFFICIENT_FUNDS, {});
+                    }
+                    // "nonce too low"
+                    if (error.responseText.indexOf("nonce too low") > 0) {
+                        logger.throwError("nonce has already been used", Logger.errors.NONCE_EXPIRED, {});
+                    }
+                    // "replacement transaction underpriced"
+                    if (error.responseText.indexOf("replacement transaction underpriced") > 0) {
+                        logger.throwError("replacement fee too low", Logger.errors.REPLACEMENT_UNDERPRICED, {});
+                    }
+                }
+                throw error;
+            });
+        }
+        return this.send(args[0], args[1]);
+    }
+    _startEvent(event) {
+        if (event.tag === "pending") {
+            this._startPending();
+        }
+        super._startEvent(event);
     }
     _startPending() {
         if (this._pendingFilter != null) {
@@ -381,15 +409,21 @@ export class JsonRpcProvider extends BaseProvider {
             return filterId;
         }).catch((error) => { });
     }
-    _stopPending() {
-        this._pendingFilter = null;
+    _stopEvent(event) {
+        if (event.tag === "pending" && this.listenerCount("pending") === 0) {
+            this._pendingFilter = null;
+        }
+        super._stopEvent(event);
     }
     // Convert an ethers.js transaction into a JSON-RPC transaction
     //  - gasLimit => gas
     //  - All values hexlified
     //  - All numeric values zero-striped
+    //  - All addresses are lowercased
     // NOTE: This allows a TransactionRequest, but all values should be resolved
     //       before this is called
+    // @TODO: This will likely be removed in future versions and prepareRequest
+    //        will be the preferred method for this.
     static hexlifyTransaction(transaction, allowExtra) {
         // Check only allowed properties are given
         const allowed = shallowCopy(allowedTransactionKeys);

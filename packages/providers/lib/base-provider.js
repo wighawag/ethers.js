@@ -75,7 +75,7 @@ function checkTopic(topic) {
 function serializeTopics(topics) {
     // Remove trailing null AND-topics; they are redundant
     topics = topics.slice();
-    while (topics[topics.length - 1] == null) {
+    while (topics.length > 0 && topics[topics.length - 1] == null) {
         topics.pop();
     }
     return topics.map(function (topic) {
@@ -96,10 +96,17 @@ function serializeTopics(topics) {
     }).join("&");
 }
 function deserializeTopics(data) {
+    if (data === "") {
+        return [];
+    }
     return data.split(/&/g).map(function (topic) {
-        return topic.split("|").map(function (topic) {
+        if (topic === "") {
+            return [];
+        }
+        var comps = topic.split("|").map(function (topic) {
             return ((topic === "null") ? null : topic);
         });
+        return ((comps.length === 1) ? comps[0] : comps);
     });
 }
 function getEventTag(eventName) {
@@ -134,6 +141,7 @@ function getTime() {
 /**
  *  EventType
  *   - "block"
+ *   - "poll"
  *   - "pending"
  *   - "error"
  *   - filter
@@ -146,15 +154,76 @@ var Event = /** @class */ (function () {
         properties_1.defineReadOnly(this, "listener", listener);
         properties_1.defineReadOnly(this, "once", once);
     }
+    Object.defineProperty(Event.prototype, "event", {
+        get: function () {
+            switch (this.type) {
+                case "tx":
+                    return this.hash;
+                case "filter":
+                    return this.filter;
+            }
+            return this.tag;
+        },
+        enumerable: true,
+        configurable: true
+    });
+    Object.defineProperty(Event.prototype, "type", {
+        get: function () {
+            return this.tag.split(":")[0];
+        },
+        enumerable: true,
+        configurable: true
+    });
+    Object.defineProperty(Event.prototype, "hash", {
+        get: function () {
+            var comps = this.tag.split(":");
+            if (comps[0] !== "tx") {
+                return null;
+            }
+            return comps[1];
+        },
+        enumerable: true,
+        configurable: true
+    });
+    Object.defineProperty(Event.prototype, "filter", {
+        get: function () {
+            var comps = this.tag.split(":");
+            if (comps[0] !== "filter") {
+                return null;
+            }
+            var address = comps[1];
+            var topics = deserializeTopics(comps[2]);
+            var filter = {};
+            if (topics.length > 0) {
+                filter.topics = topics;
+            }
+            if (address && address !== "*") {
+                filter.address = address;
+            }
+            return filter;
+        },
+        enumerable: true,
+        configurable: true
+    });
     Event.prototype.pollable = function () {
-        return (this.tag.indexOf(":") >= 0 || this.tag === "block" || this.tag === "pending");
+        return (this.tag.indexOf(":") >= 0 || this.tag === "block" || this.tag === "pending" || this.tag === "poll");
     };
     return Event;
 }());
+exports.Event = Event;
 var defaultFormatter = null;
 var nextPollId = 1;
 var BaseProvider = /** @class */ (function (_super) {
     __extends(BaseProvider, _super);
+    /**
+     *  ready
+     *
+     *  A Promise<Network> that resolves only once the provider is ready.
+     *
+     *  Sub-classes that call the super with a network without a chainId
+     *  MUST set this. Standard named networks have a known chainId.
+     *
+     */
     function BaseProvider(network) {
         var _newTarget = this.constructor;
         var _this = this;
@@ -162,18 +231,14 @@ var BaseProvider = /** @class */ (function (_super) {
         _this = _super.call(this) || this;
         _this.formatter = _newTarget.getFormatter();
         if (network instanceof Promise) {
-            properties_1.defineReadOnly(_this, "ready", network.then(function (network) {
-                properties_1.defineReadOnly(_this, "_network", network);
-                return network;
-            }));
+            _this._networkPromise = network;
             // Squash any "unhandled promise" errors; that do not need to be handled
-            _this.ready.catch(function (error) { });
+            network.catch(function (error) { });
         }
         else {
             var knownNetwork = properties_1.getStatic((_newTarget), "getNetwork")(network);
             if (knownNetwork) {
                 properties_1.defineReadOnly(_this, "_network", knownNetwork);
-                properties_1.defineReadOnly(_this, "ready", Promise.resolve(_this._network));
             }
             else {
                 logger.throwArgumentError("invalid network", "network", network);
@@ -188,6 +253,60 @@ var BaseProvider = /** @class */ (function (_super) {
         _this._fastQueryDate = 0;
         return _this;
     }
+    BaseProvider.prototype._ready = function () {
+        return __awaiter(this, void 0, void 0, function () {
+            var network, error_1;
+            return __generator(this, function (_a) {
+                switch (_a.label) {
+                    case 0:
+                        if (!(this._network == null)) return [3 /*break*/, 7];
+                        network = null;
+                        if (!this._networkPromise) return [3 /*break*/, 4];
+                        _a.label = 1;
+                    case 1:
+                        _a.trys.push([1, 3, , 4]);
+                        return [4 /*yield*/, this._networkPromise];
+                    case 2:
+                        network = _a.sent();
+                        return [3 /*break*/, 4];
+                    case 3:
+                        error_1 = _a.sent();
+                        return [3 /*break*/, 4];
+                    case 4:
+                        if (!(network == null)) return [3 /*break*/, 6];
+                        return [4 /*yield*/, this.detectNetwork()];
+                    case 5:
+                        network = _a.sent();
+                        _a.label = 6;
+                    case 6:
+                        // This should never happen; every Provider sub-class should have
+                        // suggested a network by here (or thrown).
+                        if (!network) {
+                            logger.throwError("no network detected", logger_1.Logger.errors.UNKNOWN_ERROR, {});
+                        }
+                        properties_1.defineReadOnly(this, "_network", network);
+                        _a.label = 7;
+                    case 7: return [2 /*return*/, this._network];
+                }
+            });
+        });
+    };
+    Object.defineProperty(BaseProvider.prototype, "ready", {
+        get: function () {
+            return this._ready();
+        },
+        enumerable: true,
+        configurable: true
+    });
+    BaseProvider.prototype.detectNetwork = function () {
+        return __awaiter(this, void 0, void 0, function () {
+            return __generator(this, function (_a) {
+                return [2 /*return*/, logger.throwError("provider does not support network detection", logger_1.Logger.errors.UNSUPPORTED_OPERATION, {
+                        operation: "provider.detectNetwork"
+                    })];
+            });
+        });
+    };
     BaseProvider.getFormatter = function () {
         if (defaultFormatter == null) {
             defaultFormatter = new formatter_1.Formatter();
@@ -247,8 +366,11 @@ var BaseProvider = /** @class */ (function (_super) {
                     case 1:
                         blockNumber = _a.sent();
                         this._setFastBlockNumber(blockNumber);
+                        // Emit a poll event after we have the latest (fast) block number
+                        this.emit("poll", pollId, blockNumber);
                         // If the block has not changed, meh.
                         if (blockNumber === this._lastBlockNumber) {
+                            this.emit("didPoll", pollId);
                             return [2 /*return*/];
                         }
                         // First polling cycle, trigger a "block" events
@@ -288,10 +410,9 @@ var BaseProvider = /** @class */ (function (_super) {
                         }
                         // Find all transaction hashes we are waiting on
                         this._events.forEach(function (event) {
-                            var comps = event.tag.split(":");
-                            switch (comps[0]) {
+                            switch (event.type) {
                                 case "tx": {
-                                    var hash_2 = comps[1];
+                                    var hash_2 = event.hash;
                                     var runner = _this.getTransactionReceipt(hash_2).then(function (receipt) {
                                         if (!receipt || receipt.blockNumber == null) {
                                             return null;
@@ -304,16 +425,9 @@ var BaseProvider = /** @class */ (function (_super) {
                                     break;
                                 }
                                 case "filter": {
-                                    var topics = deserializeTopics(comps[2]);
-                                    var filter_1 = {
-                                        address: comps[1],
-                                        fromBlock: _this._lastBlockNumber + 1,
-                                        toBlock: blockNumber,
-                                        topics: topics
-                                    };
-                                    if (!filter_1.address) {
-                                        delete filter_1.address;
-                                    }
+                                    var filter_1 = event.filter;
+                                    filter_1.fromBlock = _this._lastBlockNumber + 1;
+                                    filter_1.toBlock = blockNumber;
                                     var runner = _this.getLogs(filter_1).then(function (logs) {
                                         if (logs.length === 0) {
                                             return;
@@ -323,7 +437,6 @@ var BaseProvider = /** @class */ (function (_super) {
                                             _this._emitted["t:" + log.transactionHash] = log.blockNumber;
                                             _this.emit(filter_1, log);
                                         });
-                                        return null;
                                     }).catch(function (error) { _this.emit("error", error); });
                                     runners.push(runner);
                                     break;
@@ -357,7 +470,11 @@ var BaseProvider = /** @class */ (function (_super) {
     };
     Object.defineProperty(BaseProvider.prototype, "blockNumber", {
         get: function () {
-            return this._fastBlockNumber;
+            var _this = this;
+            this._getInternalBlockNumber(100 + this.pollingInterval / 2).then(function (blockNumber) {
+                _this._setFastBlockNumber(blockNumber);
+            });
+            return (this._fastBlockNumber != null) ? this._fastBlockNumber : -1;
         },
         enumerable: true,
         configurable: true
@@ -368,16 +485,29 @@ var BaseProvider = /** @class */ (function (_super) {
         },
         set: function (value) {
             var _this = this;
-            setTimeout(function () {
-                if (value && !_this._poller) {
-                    _this._poller = setInterval(_this.poll.bind(_this), _this.pollingInterval);
-                    _this.poll();
+            if (value && !this._poller) {
+                this._poller = setInterval(this.poll.bind(this), this.pollingInterval);
+                if (!this._bootstrapPoll) {
+                    this._bootstrapPoll = setTimeout(function () {
+                        _this.poll();
+                        // We block additional polls until the polling interval
+                        // is done, to prevent overwhelming the poll function
+                        _this._bootstrapPoll = setTimeout(function () {
+                            // If polling was disabled, something may require a poke
+                            // since starting the bootstrap poll and it was disabled
+                            if (!_this._poller) {
+                                _this.poll();
+                            }
+                            // Clear out the bootstrap so we can do another
+                            _this._bootstrapPoll = null;
+                        }, _this.pollingInterval);
+                    }, 0);
                 }
-                else if (!value && _this._poller) {
-                    clearInterval(_this._poller);
-                    _this._poller = null;
-                }
-            }, 0);
+            }
+            else if (!value && this._poller) {
+                clearInterval(this._poller);
+                this._poller = null;
+            }
         },
         enumerable: true,
         configurable: true
@@ -634,7 +764,7 @@ var BaseProvider = /** @class */ (function (_super) {
     };
     BaseProvider.prototype.sendTransaction = function (signedTransaction) {
         return __awaiter(this, void 0, void 0, function () {
-            var hexTx, tx, hash, error_1;
+            var hexTx, tx, hash, error_2;
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0: return [4 /*yield*/, this.ready];
@@ -652,10 +782,10 @@ var BaseProvider = /** @class */ (function (_super) {
                         hash = _a.sent();
                         return [2 /*return*/, this._wrapTransaction(tx, hash)];
                     case 5:
-                        error_1 = _a.sent();
-                        error_1.transaction = tx;
-                        error_1.transactionHash = tx.hash;
-                        throw error_1;
+                        error_2 = _a.sent();
+                        error_2.transaction = tx;
+                        error_2.transactionHash = tx.hash;
+                        throw error_2;
                     case 6: return [2 /*return*/];
                 }
             });
@@ -726,7 +856,7 @@ var BaseProvider = /** @class */ (function (_super) {
                             result[key] = _this._getBlockTag(filter[key]);
                         });
                         _b = (_a = this.formatter).filter;
-                        return [4 /*yield*/, properties_1.resolveProperties(filter)];
+                        return [4 /*yield*/, properties_1.resolveProperties(result)];
                     case 3: return [2 /*return*/, _b.apply(_a, [_c.sent()])];
                 }
             });
@@ -793,7 +923,7 @@ var BaseProvider = /** @class */ (function (_super) {
     };
     BaseProvider.prototype._getBlock = function (blockHashOrBlockTag, includeTransactions) {
         return __awaiter(this, void 0, void 0, function () {
-            var blockNumber, params, _a, _b, _c, error_2;
+            var blockNumber, params, _a, _b, _c, error_3;
             var _this = this;
             return __generator(this, function (_d) {
                 switch (_d.label) {
@@ -825,7 +955,7 @@ var BaseProvider = /** @class */ (function (_super) {
                         }
                         return [3 /*break*/, 7];
                     case 6:
-                        error_2 = _d.sent();
+                        error_3 = _d.sent();
                         logger.throwArgumentError("invalid block hash or block tag", "blockHashOrBlockTag", blockHashOrBlockTag);
                         return [3 /*break*/, 7];
                     case 7: return [2 /*return*/, web_1.poll(function () { return __awaiter(_this, void 0, void 0, function () {
@@ -1114,6 +1244,9 @@ var BaseProvider = /** @class */ (function (_super) {
                                 throw error;
                             }
                         }
+                        if (typeof (name) !== "string") {
+                            logger.throwArgumentError("invalid ENS name", "name", name);
+                        }
                         return [4 /*yield*/, this._getResolver(name)];
                     case 3:
                         resolverAddress = _c.sent();
@@ -1188,22 +1321,16 @@ var BaseProvider = /** @class */ (function (_super) {
     BaseProvider.prototype.perform = function (method, params) {
         return logger.throwError(method + " not implemented", logger_1.Logger.errors.NOT_IMPLEMENTED, { operation: method });
     };
-    BaseProvider.prototype._startPending = function () {
-        console.log("WARNING: this provider does not support pending events");
+    BaseProvider.prototype._startEvent = function (event) {
+        this.polling = (this._events.filter(function (e) { return e.pollable(); }).length > 0);
     };
-    BaseProvider.prototype._stopPending = function () {
-    };
-    // Returns true if there are events that still require polling
-    BaseProvider.prototype._checkPolling = function () {
+    BaseProvider.prototype._stopEvent = function (event) {
         this.polling = (this._events.filter(function (e) { return e.pollable(); }).length > 0);
     };
     BaseProvider.prototype._addEventListener = function (eventName, listener, once) {
-        this._events.push(new Event(getEventTag(eventName), listener, once));
-        if (eventName === "pending") {
-            this._startPending();
-        }
-        // Do we still now have any events that require polling?
-        this._checkPolling();
+        var event = new Event(getEventTag(eventName), listener, once);
+        this._events.push(event);
+        this._startEvent(event);
         return this;
     };
     BaseProvider.prototype.on = function (eventName, listener) {
@@ -1219,6 +1346,7 @@ var BaseProvider = /** @class */ (function (_super) {
             args[_i - 1] = arguments[_i];
         }
         var result = false;
+        var stopped = [];
         var eventTag = getEventTag(eventName);
         this._events = this._events.filter(function (event) {
             if (event.tag !== eventTag) {
@@ -1228,10 +1356,13 @@ var BaseProvider = /** @class */ (function (_super) {
                 event.listener.apply(_this, args);
             }, 0);
             result = true;
-            return !(event.once);
+            if (event.once) {
+                stopped.push(event);
+                return false;
+            }
+            return true;
         });
-        // Do we still have any events that require polling? ("once" events remove themselves)
-        this._checkPolling();
+        stopped.forEach(function (event) { _this._stopEvent(event); });
         return result;
     };
     BaseProvider.prototype.listenerCount = function (eventName) {
@@ -1253,9 +1384,11 @@ var BaseProvider = /** @class */ (function (_super) {
             .map(function (event) { return event.listener; });
     };
     BaseProvider.prototype.off = function (eventName, listener) {
+        var _this = this;
         if (listener == null) {
             return this.removeAllListeners(eventName);
         }
+        var stopped = [];
         var found = false;
         var eventTag = getEventTag(eventName);
         this._events = this._events.filter(function (event) {
@@ -1266,31 +1399,30 @@ var BaseProvider = /** @class */ (function (_super) {
                 return true;
             }
             found = true;
+            stopped.push(event);
             return false;
         });
-        if (eventName === "pending" && this.listenerCount("pending") === 0) {
-            this._stopPending();
-        }
-        // Do we still have any events that require polling?
-        this._checkPolling();
+        stopped.forEach(function (event) { _this._stopEvent(event); });
         return this;
     };
     BaseProvider.prototype.removeAllListeners = function (eventName) {
+        var _this = this;
+        var stopped = [];
         if (eventName == null) {
+            stopped = this._events;
             this._events = [];
-            this._stopPending();
         }
         else {
             var eventTag_1 = getEventTag(eventName);
             this._events = this._events.filter(function (event) {
-                return (event.tag !== eventTag_1);
+                if (event.tag !== eventTag_1) {
+                    return true;
+                }
+                stopped.push(event);
+                return false;
             });
-            if (eventName === "pending") {
-                this._stopPending();
-            }
         }
-        // Do we still have any events that require polling?
-        this._checkPolling();
+        stopped.forEach(function (event) { _this._stopEvent(event); });
         return this;
     };
     return BaseProvider;

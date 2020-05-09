@@ -55,7 +55,6 @@ var Formatter = /** @class */ (function () {
             data: Formatter.allowNull(strictData),
         };
         formats.receiptLog = {
-            transactionLogIndex: Formatter.allowNull(number),
             transactionIndex: number,
             blockNumber: number,
             transactionHash: hash,
@@ -139,7 +138,7 @@ var Formatter = /** @class */ (function () {
                 return false;
             }
         }
-        throw new Error("invaid boolean - " + value);
+        throw new Error("invalid boolean - " + value);
     };
     Formatter.prototype.hex = function (value, strict) {
         if (typeof (value) === "string") {
@@ -314,14 +313,7 @@ var Formatter = /** @class */ (function () {
         return Formatter.check(this.formats.receiptLog, value);
     };
     Formatter.prototype.receipt = function (value) {
-        //let status = transactionReceipt.status;
-        //let root = transactionReceipt.root;
         var result = Formatter.check(this.formats.receipt, value);
-        result.logs.forEach(function (entry, index) {
-            if (entry.transactionLogIndex == null) {
-                entry.transactionLogIndex = index;
-            }
-        });
         if (value.status != null) {
             result.byzantium = true;
         }

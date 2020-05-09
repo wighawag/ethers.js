@@ -40,12 +40,15 @@ const ethControllerAbi = [
 const ethRegistrarAbi = [
     "function ownerOf(uint256 tokenId) view returns (address)",
     "function reclaim(uint256 id, address owner) @500000",
-    "function safeTransferFrom(address from, address to, uint256 tokenId) @500000"
+    "function safeTransferFrom(address from, address to, uint256 tokenId) @500000",
+    "function nameExpires(uint256 id) external view returns(uint)"
 ];
 const resolverAbi = [
     "function interfaceImplementer(bytes32 nodehash, bytes4 interfaceId) view returns (address)",
     "function addr(bytes32 nodehash) view returns (address)",
     "function setAddr(bytes32 nodehash, address addr) @500000",
+    "function name(bytes32 nodehash) view returns (string)",
+    "function setName(bytes32 nodehash, string name) @500000",
     "function text(bytes32 nodehash, string key) view returns (string)",
     "function setText(bytes32 nodehash, string key, string value) @500000",
     "function contenthash(bytes32 nodehash) view returns (bytes)",
@@ -188,7 +191,7 @@ class LookupPlugin extends EnsPlugin {
                     if (email) {
                         details["E-mail"] = email;
                     }
-                    let website = yield resolver.text(nodehash, "website").catch((error) => (""));
+                    let website = yield resolver.text(nodehash, "url").catch((error) => (""));
                     if (website) {
                         details["Website"] = website;
                     }
@@ -226,7 +229,7 @@ class LookupPlugin extends EnsPlugin {
 cli.addPlugin("lookup", LookupPlugin);
 class AccountPlugin extends EnsPlugin {
     static getHelp() {
-        return logger.throwError("subclasses must implemetn this", ethers.errors.UNSUPPORTED_OPERATION, {
+        return logger.throwError("subclasses must implement this", ethers.errors.UNSUPPORTED_OPERATION, {
             operation: "getHelp"
         });
     }
@@ -457,7 +460,7 @@ class AddressAccountPlugin extends AccountPlugin {
             if (!address) {
                 address = yield this.getDefaultAddress();
             }
-            this.address = address;
+            this.address = yield this.getAddress(address);
         });
     }
 }
@@ -567,6 +570,30 @@ class SetAddrPlugin extends AddressAccountPlugin {
     }
 }
 cli.addPlugin("set-addr", SetAddrPlugin);
+class SetNamePlugin extends AddressAccountPlugin {
+    static getHelp() {
+        return {
+            name: "set-name NAME",
+            help: "Set the reverse name record (default: current account)"
+        };
+    }
+    run() {
+        const _super = Object.create(null, {
+            run: { get: () => super.run }
+        });
+        return __awaiter(this, void 0, void 0, function* () {
+            yield _super.run.call(this);
+            const nodehash = ethers.utils.namehash(this.address.substring(2) + ".addr.reverse");
+            this.dump("Set Name: " + this.name, {
+                "Nodehash": nodehash,
+                "Address": this.address
+            });
+            let resolver = yield this.getResolver(nodehash);
+            yield resolver.setName(nodehash, this.name);
+        });
+    }
+}
+cli.addPlugin("set-name", SetNamePlugin);
 class TextAccountPlugin extends AccountPlugin {
     run() {
         const _super = Object.create(null, {
@@ -618,7 +645,7 @@ class SetWebsitePlugin extends TextAccountPlugin {
         };
     }
     getHeader() { return "Website"; }
-    getKey() { return "website"; }
+    getKey() { return "url"; }
     getValue() { return this.url; }
 }
 cli.addPlugin("set-website", SetWebsitePlugin);
@@ -784,7 +811,7 @@ class ReclaimPlugin extends AddressAccountPlugin {
                     ownerOf = yield registrar.ownerOf(ethers.utils.id(comps[0]));
                 }
                 catch (error) {
-                    this.throwError("Name not present in Permantent Registrar");
+                    this.throwError("Name not present in Permanent Registrar");
                 }
                 if (account !== ownerOf) {
                     this.throwError("Only the registrant can call reclaim");
@@ -810,6 +837,133 @@ class ReclaimPlugin extends AddressAccountPlugin {
     }
 }
 cli.addPlugin("reclaim", ReclaimPlugin);
+function zpad(value, length) {
+    let v = String(value);
+    while (v.length < length) {
+        v = "0" + v;
+    }
+    return v;
+}
+function formatDate(date) {
+    const count = Math.round((date.getTime() - (new Date()).getTime()) / (24 * 60 * 60 * 1000));
+    return [
+        date.getFullYear(),
+        zpad(date.getMonth() + 1, 2),
+        zpad(date.getDate(), 2)
+    ].join("-") + ` (${count} days from now)`;
+}
+class RenewPlugin extends EnsPlugin {
+    static getHelp() {
+        return {
+            name: "renew NAME [ NAME ... ]",
+            help: "Reset the controller by the registrant"
+        };
+    }
+    static getOptionHelp() {
+        return [
+            {
+                name: "[ --duration DAYS ]",
+                help: "Register duration (default: 365 days)"
+            },
+            {
+                name: "[ --until YYYY-MM-DD ]",
+                help: "Register until date"
+            },
+        ];
+    }
+    getDuration(startDate, until) {
+        const match = until.match(/^(\d\d\d\d)-(\d\d)-(\d\d)$/);
+        if (!match) {
+            this.throwError("invalid date format; use YYYY-MM-DD");
+        }
+        const year = parseInt(match[1]);
+        const month = parseInt(match[2]);
+        const day = parseInt(match[3]);
+        // Not perfect; allow February 30 or April 31 @TODO?
+        if (month < 1 || month > 12 || day < 1 || day > 31) {
+            this.throwError("date out of range");
+        }
+        const endDate = (new Date(year, month - 1, day)).getTime() / 1000;
+        return Math.ceil(endDate - startDate);
+    }
+    prepareOptions(argParser) {
+        const _super = Object.create(null, {
+            prepareOptions: { get: () => super.prepareOptions }
+        });
+        return __awaiter(this, void 0, void 0, function* () {
+            yield _super.prepareOptions.call(this, argParser);
+            if (this.accounts.length !== 1) {
+                this.throwError("new requires ONE account");
+            }
+            const timespans = argParser.consumeMultiOptions(["duration", "until"]);
+            if (timespans.length === 1) {
+                const timespan = timespans.pop();
+                if (timespan.name === "duration") {
+                    this.duration = parseInt(timespan.value) * 60 * 60 * 24;
+                }
+                else if (timespan.name === "until") {
+                    this.until = timespan.value;
+                }
+            }
+            else if (timespans.length > 1) {
+                this.throwError("renew requires at most ONE of --duration or --until");
+            }
+            else {
+                this.duration = 365 * 60 * 60 * 24;
+            }
+        });
+    }
+    prepareArgs(args) {
+        const _super = Object.create(null, {
+            prepareArgs: { get: () => super.prepareArgs }
+        });
+        return __awaiter(this, void 0, void 0, function* () {
+            yield _super.prepareArgs.call(this, args);
+            const labels = [];
+            args.forEach((arg) => {
+                const comps = arg.split(".");
+                if (comps.length !== 2 || comps[1] !== "eth") {
+                    this.throwError(`name not supported ${JSON.stringify(arg)}`);
+                }
+                labels.push(comps[0]);
+            });
+            this.labels = Object.freeze(labels);
+        });
+    }
+    run() {
+        const _super = Object.create(null, {
+            run: { get: () => super.run }
+        });
+        return __awaiter(this, void 0, void 0, function* () {
+            yield _super.run.call(this);
+            const ethController = yield this.getEthController();
+            const ethRegistrar = yield this.getEthRegistrar();
+            for (let i = 0; i < this.labels.length; i++) {
+                const label = this.labels[i];
+                console.log(label);
+                const expiration = (yield ethRegistrar.nameExpires(ethers.utils.id(label))).toNumber();
+                if (expiration === 0) {
+                    this.throwError(`not registered: ${label}`);
+                }
+                const duration = this.duration ? this.duration : this.getDuration(expiration, this.until);
+                if (duration < 0) {
+                    this.throwError(`bad duration: ${duration}`);
+                }
+                const fee = (yield ethController.rentPrice(label, duration)).mul(11).div(10);
+                this.dump(`Renew: ${label}.eth`, {
+                    "Current Expiry": formatDate(new Date(expiration * 1000)),
+                    "Duration": `${(duration / (24 * 60 * 60))} days`,
+                    "Until": formatDate(new Date((expiration + duration) * 1000)),
+                    "Fee": `${ethers.utils.formatEther(fee)} (+10% buffer)`,
+                });
+                yield ethController.renew(label, duration, {
+                    value: fee
+                });
+            }
+        });
+    }
+}
+cli.addPlugin("renew", RenewPlugin);
 /**
  *  To Do:
  *    register NAME --registrar

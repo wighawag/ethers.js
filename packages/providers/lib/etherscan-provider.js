@@ -150,6 +150,13 @@ var EtherscanProvider = /** @class */ (function (_super) {
         properties_1.defineReadOnly(_this, "apiKey", apiKey || defaultApiKey);
         return _this;
     }
+    EtherscanProvider.prototype.detectNetwork = function () {
+        return __awaiter(this, void 0, void 0, function () {
+            return __generator(this, function (_a) {
+                return [2 /*return*/, this.network];
+            });
+        });
+    };
     EtherscanProvider.prototype.perform = function (method, params) {
         return __awaiter(this, void 0, void 0, function () {
             var url, apiKey, get, _a, transaction, transaction, topic0, logs, txs, i, log, tx, _b;
@@ -259,7 +266,7 @@ var EtherscanProvider = /** @class */ (function (_super) {
                             url += apiKey;
                             return [2 /*return*/, get(url)];
                         }
-                        throw new Error("getBlock by blockHash not implmeneted");
+                        throw new Error("getBlock by blockHash not implemented");
                     case 9:
                         url += "/api?module=proxy&action=eth_getTransactionByHash&txhash=" + params.transactionHash;
                         url += apiKey;
@@ -354,7 +361,7 @@ var EtherscanProvider = /** @class */ (function (_super) {
                         url += apiKey;
                         _b = parseFloat;
                         return [4 /*yield*/, get(url, getResult)];
-                    case 21: return [2 /*return*/, _b.apply(void 0, [_c.sent()])];
+                    case 21: return [2 /*return*/, _b.apply(void 0, [(_c.sent()).ethusd])];
                     case 22: return [3 /*break*/, 23];
                     case 23: return [2 /*return*/, _super.prototype.perform.call(this, method, params)];
                 }

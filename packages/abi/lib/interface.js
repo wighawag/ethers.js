@@ -20,6 +20,8 @@ var hash_1 = require("@ethersproject/hash");
 var keccak256_1 = require("@ethersproject/keccak256");
 var properties_1 = require("@ethersproject/properties");
 var abi_coder_1 = require("./abi-coder");
+var abstract_coder_1 = require("./coders/abstract-coder");
+exports.checkResultErrors = abstract_coder_1.checkResultErrors;
 var fragments_1 = require("./fragments");
 var logger_1 = require("@ethersproject/logger");
 var _version_1 = require("./_version");
@@ -51,6 +53,22 @@ var Indexed = /** @class */ (function (_super) {
     return Indexed;
 }(properties_1.Description));
 exports.Indexed = Indexed;
+function wrapAccessError(property, error) {
+    var wrap = new Error("deferred error during ABI decoding triggered accessing " + property);
+    wrap.error = error;
+    return wrap;
+}
+function checkNames(fragment, type, params) {
+    params.reduce(function (accum, param) {
+        if (param.name) {
+            if (accum[param.name]) {
+                logger.throwArgumentError("duplicate " + type + " parameter " + JSON.stringify(param.name) + " in " + fragment.format("full"), "fragment", fragment);
+            }
+            accum[param.name] = true;
+        }
+        return accum;
+    }, {});
+}
 var Interface = /** @class */ (function () {
     function Interface(fragments) {
         var _newTarget = this.constructor;
@@ -80,12 +98,16 @@ var Interface = /** @class */ (function () {
                         logger.warn("duplicate definition - constructor");
                         return;
                     }
+                    checkNames(fragment, "input", fragment.inputs);
                     properties_1.defineReadOnly(_this, "deploy", fragment);
                     return;
                 case "function":
+                    checkNames(fragment, "input", fragment.inputs);
+                    checkNames(fragment, "output", fragment.outputs);
                     bucket = _this.functions;
                     break;
                 case "event":
+                    checkNames(fragment, "input", fragment.inputs);
                     bucket = _this.events;
                     break;
                 default:
@@ -98,9 +120,12 @@ var Interface = /** @class */ (function () {
             }
             bucket[signature] = fragment;
         });
-        // If we do not have a constructor use the default "constructor() payable"
+        // If we do not have a constructor add a default
         if (!this.deploy) {
-            properties_1.defineReadOnly(this, "deploy", fragments_1.ConstructorFragment.from({ type: "constructor" }));
+            properties_1.defineReadOnly(this, "deploy", fragments_1.ConstructorFragment.from({
+                payable: false,
+                type: "constructor"
+            }));
         }
         properties_1.defineReadOnly(this, "_isInterface", true);
     }
@@ -109,7 +134,7 @@ var Interface = /** @class */ (function () {
             format = fragments_1.FormatTypes.full;
         }
         if (format === fragments_1.FormatTypes.sighash) {
-            logger.throwArgumentError("interface does not support formating sighash", "format", format);
+            logger.throwArgumentError("interface does not support formatting sighash", "format", format);
         }
         var abi = this.fragments.map(function (fragment) { return fragment.format(format); });
         // We need to re-bundle the JSON fragments a bit
@@ -128,7 +153,7 @@ var Interface = /** @class */ (function () {
     Interface.getSighash = function (functionFragment) {
         return bytes_1.hexDataSlice(hash_1.id(functionFragment.format()), 0, 4);
     };
-    Interface.getTopic = function (eventFragment) {
+    Interface.getEventTopic = function (eventFragment) {
         return hash_1.id(eventFragment.format());
     };
     // Find a function definition by any means necessary (unless it is ambiguous)
@@ -202,7 +227,7 @@ var Interface = /** @class */ (function () {
         if (typeof (eventFragment) === "string") {
             eventFragment = this.getEvent(eventFragment);
         }
-        return properties_1.getStatic(this.constructor, "getTopic")(eventFragment);
+        return properties_1.getStatic(this.constructor, "getEventTopic")(eventFragment);
     };
     Interface.prototype._decodeParams = function (params, data) {
         return this._abiCoder.decode(params, data);
@@ -286,6 +311,19 @@ var Interface = /** @class */ (function () {
         if (!eventFragment.anonymous) {
             topics.push(this.getEventTopic(eventFragment));
         }
+        var encodeTopic = function (param, value) {
+            if (param.type === "string") {
+                return hash_1.id(value);
+            }
+            else if (param.type === "bytes") {
+                return keccak256_1.keccak256(bytes_1.hexlify(value));
+            }
+            // Check addresses are valid
+            if (param.type === "address") {
+                _this._abiCoder.encode(["address"], [value]);
+            }
+            return bytes_1.hexZeroPad(bytes_1.hexlify(value), 32);
+        };
         values.forEach(function (value, index) {
             var param = eventFragment.inputs[index];
             if (!param.indexed) {
@@ -297,21 +335,14 @@ var Interface = /** @class */ (function () {
             if (value == null) {
                 topics.push(null);
             }
-            else if (param.type === "string") {
-                topics.push(hash_1.id(value));
-            }
-            else if (param.type === "bytes") {
-                topics.push(keccak256_1.keccak256(bytes_1.hexlify(value)));
-            }
-            else if (param.type.indexOf("[") !== -1 || param.type.substring(0, 5) === "tuple") {
+            else if (param.baseType === "array" || param.baseType === "tuple") {
                 logger.throwArgumentError("filtering with tuples or arrays not supported", ("contract." + param.name), value);
             }
+            else if (Array.isArray(value)) {
+                topics.push(value.map(function (value) { return encodeTopic(param, value); }));
+            }
             else {
-                // Check addresses are valid
-                if (param.type === "address") {
-                    _this._abiCoder.encode(["address"], [value]);
-                }
-                topics.push(bytes_1.hexZeroPad(bytes_1.hexlify(value), 32));
+                topics.push(encodeTopic(param, value));
             }
         });
         // Trim off trailing nulls
@@ -319,6 +350,47 @@ var Interface = /** @class */ (function () {
             topics.pop();
         }
         return topics;
+    };
+    Interface.prototype.encodeEventLog = function (eventFragment, values) {
+        var _this = this;
+        if (typeof (eventFragment) === "string") {
+            eventFragment = this.getEvent(eventFragment);
+        }
+        var topics = [];
+        var dataTypes = [];
+        var dataValues = [];
+        if (!eventFragment.anonymous) {
+            topics.push(this.getEventTopic(eventFragment));
+        }
+        if (values.length !== eventFragment.inputs.length) {
+            logger.throwArgumentError("event arguments/values mismatch", "values", values);
+        }
+        eventFragment.inputs.forEach(function (param, index) {
+            var value = values[index];
+            if (param.indexed) {
+                if (param.type === "string") {
+                    topics.push(hash_1.id(value));
+                }
+                else if (param.type === "bytes") {
+                    topics.push(keccak256_1.keccak256(value));
+                }
+                else if (param.baseType === "tuple" || param.baseType === "array") {
+                    // @TOOD
+                    throw new Error("not implemented");
+                }
+                else {
+                    topics.push(_this._abiCoder.encode([param.type], [value]));
+                }
+            }
+            else {
+                dataTypes.push(param);
+                dataValues.push(value);
+            }
+        });
+        return {
+            data: this._abiCoder.encode(dataTypes, dataValues),
+            topics: topics
+        };
     };
     // Decode a filter for the event and the search criteria
     Interface.prototype.decodeEventLog = function (eventFragment, data, topics) {
@@ -364,17 +436,49 @@ var Interface = /** @class */ (function () {
                     result[index] = new Indexed({ _isIndexed: true, hash: resultIndexed[indexedIndex++] });
                 }
                 else {
-                    result[index] = resultIndexed[indexedIndex++];
+                    try {
+                        result[index] = resultIndexed[indexedIndex++];
+                    }
+                    catch (error) {
+                        result[index] = error;
+                    }
                 }
             }
             else {
-                result[index] = resultNonIndexed[nonIndexedIndex++];
+                try {
+                    result[index] = resultNonIndexed[nonIndexedIndex++];
+                }
+                catch (error) {
+                    result[index] = error;
+                }
             }
+            // Add the keyword argument if named and safe
             if (param.name && result[param.name] == null) {
-                result[param.name] = result[index];
+                var value_1 = result[index];
+                // Make error named values throw on access
+                if (value_1 instanceof Error) {
+                    Object.defineProperty(result, param.name, {
+                        get: function () { throw wrapAccessError("property " + JSON.stringify(param.name), value_1); }
+                    });
+                }
+                else {
+                    result[param.name] = value_1;
+                }
             }
         });
-        return result;
+        var _loop_1 = function (i) {
+            var value = result[i];
+            if (value instanceof Error) {
+                Object.defineProperty(result, i, {
+                    get: function () { throw wrapAccessError("index " + i, value); }
+                });
+            }
+        };
+        // Make all error indexed values throw on access
+        for (var i = 0; i < result.length; i++) {
+            _loop_1(i);
+        }
+        return Object.freeze(result);
     };
     // Given a transaction, find the matching function fragment (if any) and
     // determine all its properties and call parameters

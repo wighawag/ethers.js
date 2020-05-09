@@ -25,6 +25,7 @@ export interface Event extends Log {
     event?: string;
     eventSignature?: string;
     args?: Result;
+    decodeError?: Error;
     decode?: (data: string, topics?: Array<string>) => any;
     removeListener: () => void;
     getBlock: () => Promise<Block>;
@@ -52,6 +53,7 @@ declare class RunningEvent {
     listenerCount(): number;
     run(args: Array<any>): number;
     prepareEvent(event: Event): void;
+    getEmit(event: Event): Array<any>;
 }
 export declare type ContractInterface = string | Array<Fragment | JsonFragment | string> | Interface;
 export declare class Contract {
@@ -61,11 +63,11 @@ export declare class Contract {
     readonly provider: Provider;
     readonly functions: Bucket<ContractFunction>;
     readonly callStatic: Bucket<ContractFunction>;
-    readonly estimate: Bucket<(...params: Array<any>) => Promise<BigNumber>>;
+    readonly estimateGas: Bucket<(...params: Array<any>) => Promise<BigNumber>>;
     readonly populateTransaction: Bucket<(...params: Array<any>) => Promise<UnsignedTransaction>>;
     readonly filters: Bucket<(...params: Array<any>) => EventFilter>;
     readonly [name: string]: ContractFunction | any;
-    readonly addressPromise: Promise<string>;
+    readonly resolvedAddress: Promise<string>;
     readonly deployTransaction: TransactionResponse;
     private _deployedPromise;
     private _runningEvents;
@@ -85,7 +87,7 @@ export declare class Contract {
     private _normalizeRunningEvent;
     private _getRunningEvent;
     _checkRunningEvents(runningEvent: RunningEvent): void;
-    private _wrapEvent;
+    _wrapEvent(runningEvent: RunningEvent, log: Log, listener: Listener): Event;
     private _addEventListener;
     queryFilter(event: EventFilter, fromBlockOrBlockhash?: BlockTag | string, toBlock?: BlockTag): Promise<Array<Event>>;
     on(event: EventFilter | string, listener: Listener): this;

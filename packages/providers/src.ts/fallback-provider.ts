@@ -1,16 +1,18 @@
 "use strict";
 
-import { Network } from "@ethersproject/networks";
 import { Block, BlockWithTransactions, Provider } from "@ethersproject/abstract-provider";
-import { shuffled } from "@ethersproject/random";
-import { deepCopy, defineReadOnly, shallowCopy } from "@ethersproject/properties";
 import { BigNumber } from "@ethersproject/bignumber";
+import { isHexString } from "@ethersproject/bytes";
+import { Network } from "@ethersproject/networks";
+import { deepCopy, defineReadOnly, shallowCopy } from "@ethersproject/properties";
+import { shuffled } from "@ethersproject/random";
+import { poll } from "@ethersproject/web";
+
+import { BaseProvider } from "./base-provider";
 
 import { Logger } from "@ethersproject/logger";
 import { version } from "./_version";
 const logger = new Logger(version);
-
-import { BaseProvider } from "./base-provider";
 
 function now() { return (new Date()).getTime(); }
 
@@ -40,18 +42,23 @@ function checkNetworks(networks: Array<Network>): Network {
     return result;
 }
 
-function median(values: Array<number>): number {
-        values = values.slice().sort();
-        const middle = Math.floor(values.length / 2);
+function median(values: Array<number>, maxDelta?: number): number {
+    values = values.slice().sort();
+    const middle = Math.floor(values.length / 2);
 
-        // Odd length; take the middle
-        if (values.length % 2) {
-            return values[middle];
-        }
+    // Odd length; take the middle
+    if (values.length % 2) {
+        return values[middle];
+    }
 
-        // Even length; take the average of the two middle
-        const a = values[middle - 1], b = values[middle];
-        return (a + b) / 2;
+    // Even length; take the average of the two middle
+    const a = values[middle - 1], b = values[middle];
+
+    if (maxDelta != null && Math.abs(a - b) > maxDelta) {
+        return null;
+    }
+
+    return (a + b) / 2;
 }
 
 function serialize(value: any): string {
@@ -95,7 +102,7 @@ export interface FallbackProviderConfig {
 
     // Timeout before also triggering the next provider; this does not stop
     // this provider and if its result comes back before a quorum is reached
-    // it will be used it will be used.
+    // it will be incorporated into the vote
     // - lower values will cause more network traffic but may result in a
     //   faster retult.
     stallTimeout?: number;
@@ -106,19 +113,48 @@ export interface FallbackProviderConfig {
     weight?: number;
 };
 
-// Returns a promise that delays for duration
-function stall(duration: number): Promise<void> {
-    return new Promise((resolve) => {
-        const timer = setTimeout(resolve, duration);
-        if (timer.unref) { timer.unref(); }
-    });
+// A Staller is used to provide a delay to give a Provider a chance to response
+// before asking the next Provider to try.
+type Staller = {
+    wait: (func: () => void) => Promise<void>
+    getPromise: () => Promise<void>,
+    cancel: () => void
+};
+
+function stall(duration: number): Staller {
+    let cancel: () => void = null;
+
+    let timer: NodeJS.Timer = null;
+    let promise = <Promise<void>>(new Promise((resolve) => {
+        cancel = function() {
+            if (timer) {
+                clearTimeout(timer);
+                timer = null;
+            }
+            resolve();
+        }
+        timer = setTimeout(cancel, duration);
+    }));
+
+    const wait = (func: () => void) => {
+        promise = promise.then(func);
+        return promise;
+    }
+
+    function getPromise(): Promise<void> {
+        return promise;
+    }
+
+    return { cancel, getPromise, wait };
 }
 
+// @TODO: Make this an object with staller and cancel built-in
 interface RunningConfig extends FallbackProviderConfig {
     start?: number;
     done?: boolean;
+    cancelled?: boolean;
     runner?: Promise<any>;
-    staller?: Promise<void>;
+    staller?: Staller;
     result?: any;
     error?: Error;
 };
@@ -178,7 +214,10 @@ function getProcessFunc(provider: FallbackProvider, method: string, params: { [ 
                 const values = configs.map((c) => c.result);
 
                 // Get the median block number
-                let blockNumber = Math.ceil(median(configs.map((c) => c.result)));
+                let blockNumber = median(configs.map((c) => c.result), 2);
+                if (blockNumber == null) { return undefined; }
+
+                blockNumber = Math.ceil(blockNumber);
 
                 // If the next block height is present, its prolly safe to use
                 if (values.indexOf(blockNumber + 1) >= 0) { blockNumber++; }
@@ -263,7 +302,35 @@ function getProcessFunc(provider: FallbackProvider, method: string, params: { [ 
 
 }
 
-function getRunner(provider: Provider, method: string, params: { [ key: string]: any }): Promise<any> {
+// If we are doing a blockTag query, we need to make sure the backend is
+// caught up to the FallbackProvider, before sending a request to it.
+async function waitForSync(config: RunningConfig, blockNumber: number): Promise<BaseProvider> {
+    const provider = <BaseProvider>(config.provider);
+
+    if ((provider.blockNumber != null && provider.blockNumber >= blockNumber) || blockNumber === -1) {
+        return provider;
+    }
+
+    return poll(() => {
+        return new Promise((resolve, reject) => {
+            setTimeout(function() {
+
+                // We are synced
+                if (provider.blockNumber >= blockNumber) { return resolve(Provider); }
+
+                // We're done; just quit
+                if (config.cancelled) { return resolve(null); }
+
+                // Try again, next block
+                return resolve(undefined);
+            }, 0);
+        });
+    }, { oncePoll: provider });
+}
+
+async function getRunner(config: RunningConfig, currentBlockNumber: number, method: string, params: { [ key: string]: any }): Promise<any> {
+    let provider = config.provider;
+
     switch (method) {
         case "getBlockNumber":
         case "getGasPrice":
@@ -276,19 +343,36 @@ function getRunner(provider: Provider, method: string, params: { [ key: string]:
         case "getBalance":
         case "getTransactionCount":
         case "getCode":
+            if (params.blockTag && isHexString(params.blockTag)) {
+                provider = await waitForSync(config, currentBlockNumber)
+            }
             return provider[method](params.address, params.blockTag || "latest");
         case "getStorageAt":
+            if (params.blockTag && isHexString(params.blockTag)) {
+                provider = await waitForSync(config, currentBlockNumber)
+            }
             return provider.getStorageAt(params.address, params.position, params.blockTag || "latest");
         case "getBlock":
+            if (params.blockTag && isHexString(params.blockTag)) {
+                provider = await waitForSync(config, currentBlockNumber)
+            }
             return provider[(params.includeTransactions ? "getBlockWithTransactions": "getBlock")](params.blockTag || params.blockHash);
         case "call":
         case "estimateGas":
+            if (params.blockTag && isHexString(params.blockTag)) {
+                provider = await waitForSync(config, currentBlockNumber)
+            }
             return provider[method](params.transaction);
         case "getTransaction":
         case "getTransactionReceipt":
             return provider[method](params.transactionHash);
-        case "getLogs":
-            return provider.getLogs(params.filter);
+        case "getLogs": {
+            let filter = params.filter;
+            if ((filter.fromBlock && isHexString(filter.fromBlock)) || (filter.toBlock && isHexString(filter.toBlock))) {
+                provider = await waitForSync(config, currentBlockNumber)
+            }
+            return provider.getLogs(filter);
+        }
     }
 
     return logger.throwError("unknown method error", Logger.errors.UNKNOWN_ERROR, {
@@ -301,7 +385,7 @@ export class FallbackProvider extends BaseProvider {
     readonly providerConfigs: ReadonlyArray<FallbackProviderConfig>;
     readonly quorum: number;
 
-    // Due to teh highly asyncronous nature of the blockchain, we need
+    // Due to the highly asyncronous nature of the blockchain, we need
     // to make sure we never unroll the blockNumber due to our random
     // sample of backends
     _highestBlockNumber: number;
@@ -344,14 +428,8 @@ export class FallbackProvider extends BaseProvider {
         const network = checkNetworks(providerConfigs.map((c) => (<any>(c.provider)).network));
         if (network) {
             super(network);
-
         } else {
-            // The network won't be known until all child providers know
-            const ready = Promise.all(providerConfigs.map((c) => c.provider.getNetwork())).then((networks) => {
-                return checkNetworks(networks);
-            });
-
-            super(ready);
+            super(this.detectNetwork());
         }
 
         // Preserve a copy, so we do not get mutated
@@ -361,41 +439,51 @@ export class FallbackProvider extends BaseProvider {
         this._highestBlockNumber = -1;
     }
 
-    async perform(method: string, params: { [name: string]: any }): Promise<any> {
+    async detectNetwork(): Promise<Network> {
+        const networks = await Promise.all(this.providerConfigs.map((c) => c.provider.getNetwork()));
+        return checkNetworks(networks);
+    }
 
+    async perform(method: string, params: { [name: string]: any }): Promise<any> {
         // Sending transactions is special; always broadcast it to all backends
         if (method === "sendTransaction") {
-            return Promise.all(this.providerConfigs.map((c) => {
+            const results: Array<string | Error> = await Promise.all(this.providerConfigs.map((c) => {
                 return c.provider.sendTransaction(params.signedTransaction).then((result) => {
                     return result.hash;
                 }, (error) => {
                     return error;
                 });
-            })).then((results) => {
-                // Any success is good enough (other errors are likely "already seen" errors
-                for (let i = 0; i < results.length; i++) {
-                    const result = results[i];
-                    if (typeof(result) === "string") { return result; }
-                }
+            }));
 
-                // They were all an error; pick the first error
-                return Promise.reject(results[0].error);
-            });
+            // Any success is good enough (other errors are likely "already seen" errors
+            for (let i = 0; i < results.length; i++) {
+                const result = results[i];
+                if (typeof(result) === "string") { return result; }
+            }
+
+            // They were all an error; pick the first error
+            throw results[0];
+        }
+
+        // We need to make sure we are in sync with our backends, so we need
+        // to know this before we can make a lot of calls
+        if (this._highestBlockNumber === -1 && method !== "getBlockNumber") {
+            await this.getBlockNumber();
         }
 
         const processFunc = getProcessFunc(this, method, params);
 
         // Shuffle the providers and then sort them by their priority; we
         // shallowCopy them since we will store the result in them too
-        const configs: Array<RunningConfig> = shuffled(this.providerConfigs.map((c) => shallowCopy(c)));
+        const configs: Array<RunningConfig> = shuffled(this.providerConfigs.map(shallowCopy));
         configs.sort((a, b) => (a.priority - b.priority));
 
+        const currentBlockNumber = this._highestBlockNumber;
+
         let i = 0;
+        let first = true;
         while (true) {
             const t0 = now();
-
-            // Get a list of running
-            //const running = configs.filter((c) => (c.runner && !c.done));
 
             // Compute the inflight weight (exclude anything past)
             let inflightWeight = configs.filter((c) => (c.runner && ((t0 - c.start) < c.stallTimeout)))
@@ -408,9 +496,10 @@ export class FallbackProvider extends BaseProvider {
                 const rid = nextRid++;
 
                 config.start = now();
-                config.staller = stall(config.stallTimeout).then(() => { config.staller = null; });
+                config.staller = stall(config.stallTimeout);
+                config.staller.wait(() => { config.staller = null; });
 
-                config.runner = getRunner(config.provider, method, params).then((result) => {
+                config.runner = getRunner(config, currentBlockNumber, method, params).then((result) => {
                     config.done = true;
                     config.result = result;
 
@@ -439,8 +528,6 @@ export class FallbackProvider extends BaseProvider {
                     }
                 });
 
-                //running.push(config);
-
                 if (this.listenerCount("debug")) {
                     this.emit("debug", {
                         action: "request",
@@ -459,7 +546,7 @@ export class FallbackProvider extends BaseProvider {
             configs.forEach((c) => {
                 if (c.done || !c.runner) { return; }
                 waiting.push(c.runner);
-                if (c.staller) { waiting.push(c.staller); }
+                if (c.staller) { waiting.push(c.staller.getPromise()); }
             });
 
             if (waiting.length) { await Promise.race(waiting); }
@@ -469,12 +556,27 @@ export class FallbackProvider extends BaseProvider {
             const results = configs.filter((c) => (c.done && c.error == null));
             if (results.length >= this.quorum) {
                 const result = processFunc(results);
-                if (result !== undefined) { return result; }
+                if (result !== undefined) {
+                    // Shut down any stallers
+                    configs.forEach(c => {
+                        if (c.staller) { c.staller.cancel(); }
+                        c.cancelled = true;
+                    });
+                    return result;
+                }
+                if (!first) { await stall(100).getPromise(); }
+                first = false;
             }
 
             // All configs have run to completion; we will never get more data
             if (configs.filter((c) => !c.done).length === 0) { break; }
         }
+
+        // Shut down any stallers; shouldn't be any
+        configs.forEach(c => {
+            if (c.staller) { c.staller.cancel(); }
+            c.cancelled = true;
+        });
 
         return logger.throwError("failed to meet quorum", Logger.errors.SERVER_ERROR, {
             method: method,

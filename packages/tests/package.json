@@ -3,16 +3,22 @@
   "browser": {
     "ethers": "./lib/browser-ethers.js"
   },
+  "browser.esm": {
+    "ethers": "./lib.esm/browser-ethers.js"
+  },
+  "browser.umd": {
+    "ethers": "./lib/browser-ethers.js"
+  },
   "dependencies": {
-    "@ethersproject/cli": ">=5.0.0-beta.145",
-    "@ethersproject/testcases": ">=5.0.0-beta.131",
+    "@ethersproject/cli": ">=5.0.0-beta.155",
+    "@ethersproject/testcases": ">=5.0.0-beta.140",
     "@types/mocha": "^5.2.0",
-    "ethers": ">=5.0.0-beta.156"
+    "ethers": ">=5.0.0-beta.186"
   },
   "description": "Testing package for ethers.",
   "devDependencies": {
     "browserify": "16.2.3",
-    "mocha": "^5.2.0"
+    "mocha": "^7.1.1"
   },
   "ethereum": "donations.ethers.eth",
   "keywords": [
@@ -33,7 +39,7 @@
   "scripts": {
     "test": "exit 1"
   },
-  "tarballHash": "0xd4c3655426810645739d83b94b2006c71d8e22589f33cdaa151bd7c30ce4fad4",
+  "tarballHash": "0xd376411700f270d3bef8837333d831efed0832751be45038c5bf9a61f3580fd4",
   "types": "./lib/index.d.ts",
-  "version": "5.0.0-beta.152"
+  "version": "5.0.0-beta.159"
 }

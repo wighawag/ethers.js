@@ -105,6 +105,11 @@ export class EtherscanProvider extends BaseProvider {
         defineReadOnly(this, "baseUrl", baseUrl);
         defineReadOnly(this, "apiKey", apiKey || defaultApiKey);
     }
+    detectNetwork() {
+        return __awaiter(this, void 0, void 0, function* () {
+            return this.network;
+        });
+    }
     perform(method, params) {
         const _super = Object.create(null, {
             perform: { get: () => super.perform }
@@ -187,7 +192,7 @@ export class EtherscanProvider extends BaseProvider {
                         url += apiKey;
                         return get(url);
                     }
-                    throw new Error("getBlock by blockHash not implmeneted");
+                    throw new Error("getBlock by blockHash not implemented");
                 case "getTransaction":
                     url += "/api?module=proxy&action=eth_getTransactionByHash&txhash=" + params.transactionHash;
                     url += apiKey;
@@ -268,7 +273,7 @@ export class EtherscanProvider extends BaseProvider {
                     }
                     url += "/api?module=stats&action=ethprice";
                     url += apiKey;
-                    return parseFloat(yield get(url, getResult));
+                    return parseFloat((yield get(url, getResult)).ethusd);
                 default:
                     break;
             }

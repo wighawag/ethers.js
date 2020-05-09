@@ -7,6 +7,7 @@ const logger = new Logger(version);
 ;
 const _constructorGuard = {};
 let ModifiersBytes = { calldata: true, memory: true, storage: true };
+let ModifiersNest = { calldata: true, memory: true };
 function checkModifier(type, name) {
     if (type === "bytes" || type === "string") {
         if (ModifiersBytes[name]) {
@@ -15,6 +16,11 @@ function checkModifier(type, name) {
     }
     else if (type === "address") {
         if (name === "payable") {
+            return true;
+        }
+    }
+    else if (type.indexOf("[") >= 0 || type === "tuple") {
+        if (ModifiersNest[name]) {
             return true;
         }
     }
@@ -27,7 +33,7 @@ function checkModifier(type, name) {
 function parseParamType(param, allowIndexed) {
     let originalParam = param;
     function throwError(i) {
-        throw new Error("unexpected character '" + originalParam[i] + "' at position " + i + " in '" + originalParam + "'");
+        logger.throwArgumentError(`unexpected character at position ${i}`, "param", param);
     }
     param = param.replace(/\s/g, " ");
     function newNode(parent) {
@@ -166,7 +172,7 @@ function parseParamType(param, allowIndexed) {
         }
     }
     if (node.parent) {
-        throw new Error("unexpected eof");
+        logger.throwArgumentError("unexpected eof", "param", param);
     }
     delete parent.state;
     if (node.name === "indexed") {
@@ -204,7 +210,9 @@ const paramTypeArray = new RegExp(/^(.*)\[([0-9]*)\]$/);
 export class ParamType {
     constructor(constructorGuard, params) {
         if (constructorGuard !== _constructorGuard) {
-            throw new Error("use fromString");
+            logger.throwError("use fromString", Logger.errors.UNSUPPORTED_OPERATION, {
+                operation: "new ParamType()"
+            });
         }
         populate(this, params);
         let match = this.type.match(paramTypeArray);
@@ -318,7 +326,9 @@ function parseParams(value, allowIndex) {
 export class Fragment {
     constructor(constructorGuard, params) {
         if (constructorGuard !== _constructorGuard) {
-            throw new Error("use a static from method");
+            logger.throwError("use a static from method", Logger.errors.UNSUPPORTED_OPERATION, {
+                operation: "new Fragment()"
+            });
         }
         populate(this, params);
         this._isFragment = true;
@@ -337,18 +347,17 @@ export class Fragment {
         if (Fragment.isFragment(value)) {
             return value;
         }
-        if (value.type === "function") {
-            return FunctionFragment.fromObject(value);
-        }
-        else if (value.type === "event") {
-            return EventFragment.fromObject(value);
-        }
-        else if (value.type === "constructor") {
-            return ConstructorFragment.fromObject(value);
-        }
-        else if (value.type === "fallback") {
-            // @TODO:
-            return null;
+        switch (value.type) {
+            case "function":
+                return FunctionFragment.fromObject(value);
+            case "event":
+                return EventFragment.fromObject(value);
+            case "constructor":
+                return ConstructorFragment.fromObject(value);
+            case "fallback":
+            case "receive":
+                // @TODO: Something? Maybe return a FunctionFragment? A custom DefaultFunctionFragment?
+                return null;
         }
         return logger.throwArgumentError("invalid fragment object", "value", value);
     }
@@ -366,7 +375,7 @@ export class Fragment {
         else if (value.split("(")[0].trim() === "constructor") {
             return ConstructorFragment.fromString(value.trim());
         }
-        throw new Error("unknown fragment");
+        return logger.throwArgumentError("unsupported fragment", "value", value);
     }
     static isFragment(value) {
         return !!(value && value._isFragment);
@@ -411,19 +420,20 @@ export class EventFragment extends Fragment {
             return value;
         }
         if (value.type !== "event") {
-            throw new Error("invalid event object - " + value.type);
+            logger.throwArgumentError("invalid event object", "value", value);
         }
-        return new EventFragment(_constructorGuard, {
+        const params = {
             name: verifyIdentifier(value.name),
             anonymous: value.anonymous,
             inputs: (value.inputs ? value.inputs.map(ParamType.fromObject) : []),
             type: "event"
-        });
+        };
+        return new EventFragment(_constructorGuard, params);
     }
     static fromString(value) {
         let match = value.match(regexParen);
         if (!match) {
-            throw new Error("invalid event: " + value);
+            logger.throwArgumentError("invalid event string", "value", value);
         }
         let anonymous = false;
         match[3].split(" ").forEach((modifier) => {
@@ -453,10 +463,10 @@ function parseGas(value, params) {
     let comps = value.split("@");
     if (comps.length !== 1) {
         if (comps.length > 2) {
-            throw new Error("invalid signature");
+            logger.throwArgumentError("invalid human-readable ABI signature", "value", value);
         }
         if (!comps[1].match(/^[0-9]+$/)) {
-            throw new Error("invalid signature gas");
+            logger.throwArgumentError("invalid human-readable ABI signature gas", "value", value);
         }
         params.gas = BigNumber.from(comps[1]);
         return comps[0];
@@ -501,31 +511,45 @@ function verifyState(value) {
     };
     if (value.stateMutability != null) {
         result.stateMutability = value.stateMutability;
+        // Set (and check things are consistent) the constant property
         result.constant = (result.stateMutability === "view" || result.stateMutability === "pure");
         if (value.constant != null) {
             if ((!!value.constant) !== result.constant) {
-                throw new Error("cannot have constant function with mutability " + result.stateMutability);
+                logger.throwArgumentError("cannot have constant function with mutability " + result.stateMutability, "value", value);
             }
         }
+        // Set (and check things are consistent) the payable property
         result.payable = (result.stateMutability === "payable");
         if (value.payable != null) {
             if ((!!value.payable) !== result.payable) {
-                throw new Error("cannot have payable function with mutability " + result.stateMutability);
+                logger.throwArgumentError("cannot have payable function with mutability " + result.stateMutability, "value", value);
             }
         }
     }
     else if (value.payable != null) {
         result.payable = !!value.payable;
-        result.stateMutability = (result.payable ? "payable" : "nonpayable");
-        result.constant = !result.payable;
-        if (value.constant != null && (value.constant !== result.constant)) {
-            throw new Error("cannot have constant payable function");
+        // If payable we can assume non-constant; otherwise we can't assume
+        if (value.constant == null && !result.payable && value.type !== "constructor") {
+            logger.throwArgumentError("unable to determine stateMutability", "value", value);
+        }
+        result.constant = !!value.constant;
+        if (result.constant) {
+            result.stateMutability = "view";
+        }
+        else {
+            result.stateMutability = (result.payable ? "payable" : "nonpayable");
+        }
+        if (result.payable && result.constant) {
+            logger.throwArgumentError("cannot have constant payable function", "value", value);
         }
     }
     else if (value.constant != null) {
         result.constant = !!value.constant;
         result.payable = !result.constant;
         result.stateMutability = (result.constant ? "view" : "payable");
+    }
+    else if (value.type !== "constructor") {
+        logger.throwArgumentError("unable to determine stateMutability", "value", value);
     }
     return result;
 }
@@ -568,29 +592,28 @@ export class ConstructorFragment extends Fragment {
             return value;
         }
         if (value.type !== "constructor") {
-            throw new Error("invalid constructor object - " + value.type);
+            logger.throwArgumentError("invalid constructor object", "value", value);
         }
         let state = verifyState(value);
         if (state.constant) {
-            throw new Error("constructor cannot be constant");
+            logger.throwArgumentError("constructor cannot be constant", "value", value);
         }
-        return new ConstructorFragment(_constructorGuard, {
+        const params = {
             name: null,
             type: value.type,
             inputs: (value.inputs ? value.inputs.map(ParamType.fromObject) : []),
             payable: state.payable,
+            stateMutability: state.stateMutability,
             gas: (value.gas ? BigNumber.from(value.gas) : null)
-        });
+        };
+        return new ConstructorFragment(_constructorGuard, params);
     }
     static fromString(value) {
         let params = { type: "constructor" };
         value = parseGas(value, params);
         let parens = value.match(regexParen);
-        if (!parens) {
-            throw new Error("invalid constructor: " + value);
-        }
-        if (parens[1].trim() !== "constructor") {
-            throw new Error("invalid constructor");
+        if (!parens || parens[1].trim() !== "constructor") {
+            logger.throwArgumentError("invalid constructor string", "value", value);
         }
         params.inputs = parseParams(parens[2].trim(), false);
         parseModifiers(parens[3].trim(), params);
@@ -654,10 +677,10 @@ export class FunctionFragment extends ConstructorFragment {
             return value;
         }
         if (value.type !== "function") {
-            throw new Error("invalid function object - " + value.type);
+            logger.throwArgumentError("invalid function object", "value", value);
         }
         let state = verifyState(value);
-        return new FunctionFragment(_constructorGuard, {
+        const params = {
             type: value.type,
             name: verifyIdentifier(value.name),
             constant: state.constant,
@@ -666,22 +689,23 @@ export class FunctionFragment extends ConstructorFragment {
             payable: state.payable,
             stateMutability: state.stateMutability,
             gas: (value.gas ? BigNumber.from(value.gas) : null)
-        });
+        };
+        return new FunctionFragment(_constructorGuard, params);
     }
     static fromString(value) {
         let params = { type: "function" };
         value = parseGas(value, params);
         let comps = value.split(" returns ");
         if (comps.length > 2) {
-            throw new Error("invalid function");
+            logger.throwArgumentError("invalid function string", "value", value);
         }
         let parens = comps[0].match(regexParen);
         if (!parens) {
-            throw new Error("invalid signature");
+            logger.throwArgumentError("invalid function signature", "value", value);
         }
         params.name = parens[1].trim();
-        if (!params.name.match(regexIdentifier)) {
-            throw new Error("invalid identifier: '" + params.name + "'");
+        if (params.name) {
+            verifyIdentifier(params.name);
         }
         params.inputs = parseParams(parens[2], false);
         parseModifiers(parens[3].trim(), params);
@@ -689,7 +713,7 @@ export class FunctionFragment extends ConstructorFragment {
         if (comps.length > 1) {
             let returns = comps[1].match(regexParen);
             if (returns[1].trim() != "" || returns[3].trim() != "") {
-                throw new Error("unexpected tokens");
+                logger.throwArgumentError("unexpected tokens", "value", value);
             }
             params.outputs = parseParams(returns[2], false);
         }
@@ -720,7 +744,7 @@ function verifyType(type) {
 const regexIdentifier = new RegExp("^[A-Za-z_][A-Za-z0-9_]*$");
 function verifyIdentifier(value) {
     if (!value || !value.match(regexIdentifier)) {
-        throw new Error("invalid identifier: '" + value + "'");
+        logger.throwArgumentError(`invalid identifier "${value}"`, "value", value);
     }
     return value;
 }
@@ -744,7 +768,7 @@ function splitNesting(value) {
             else if (c === ")") {
                 depth--;
                 if (depth === -1) {
-                    throw new Error("unbalanced parenthsis");
+                    logger.throwArgumentError("unbalanced parenthesis", "value", value);
                 }
             }
         }
