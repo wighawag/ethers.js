@@ -1,0 +1,32 @@
+{
+  "_ethers_nobuild": true,
+  "author": "Richard Moore <me@ricmoo.com>",
+  "description": "Shims required for ethers in constrained environments.",
+  "devDependencies": {
+    "browserify": "16.2.3",
+    "uglify-es": "3.3.9"
+  },
+  "ethereum": "donations.ethers.eth",
+  "keywords": [
+    "Ethereum",
+    "ethers"
+  ],
+  "license": "MIT",
+  "main": "./lib/index.js",
+  "module": "./lib.esm/index.js",
+  "name": "@ethersproject/shims",
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/ethers-io/ethers.js.git"
+  },
+  "scripts": {
+    "dist": "browserify ./src/index.js -o ./dist/index.js && uglifyjs --compress --mangle --output ./dist/index.min.js -- ./dist/index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "tarballHash": "0x725669cac527ac455a7222abfc3e97e22bd4eeef962af4ffcad8096dc1536c0c",
+  "types": "./lib/index.d.ts",
+  "version": "5.0.2"
+}
