@@ -13,14 +13,15 @@ import { Logger } from "@ethersproject/logger";
 import { version } from "./_version";
 const logger = new Logger(version);
 const allowedTransactionKeys = [
-    "chainId", "data", "from", "gasLimit", "gasPrice", "nonce", "to", "value"
+    "accessList", "chainId", "data", "from", "gasLimit", "gasPrice", "nonce", "to", "type", "value"
 ];
-// Sub-Class Notes:
-//  - A Signer MUST always make sure, that if present, the "from" field
-//    matches the Signer, before sending or signing a transaction
-//  - A Signer SHOULD always wrap private information (such as a private
-//    key or mnemonic) in a function, so that console.log does not leak
-//    the data
+const forwardErrors = [
+    Logger.errors.INSUFFICIENT_FUNDS,
+    Logger.errors.NONCE_EXPIRED,
+    Logger.errors.REPLACEMENT_UNDERPRICED,
+];
+;
+;
 export class Signer {
     ///////////////////
     // Sub-classes MUST call super
@@ -111,7 +112,7 @@ export class Signer {
                 Promise.resolve(tx.from),
                 this.getAddress()
             ]).then((result) => {
-                if (result[0] !== result[1]) {
+                if (result[0].toLowerCase() !== result[1].toLowerCase()) {
                     logger.throwArgumentError("from address mismatch", "transaction", transaction);
                 }
                 return result[0];
@@ -127,7 +128,16 @@ export class Signer {
         return __awaiter(this, void 0, void 0, function* () {
             const tx = yield resolveProperties(this.checkTransaction(transaction));
             if (tx.to != null) {
-                tx.to = Promise.resolve(tx.to).then((to) => this.resolveName(to));
+                tx.to = Promise.resolve(tx.to).then((to) => __awaiter(this, void 0, void 0, function* () {
+                    if (to == null) {
+                        return null;
+                    }
+                    const address = yield this.resolveName(to);
+                    if (address == null) {
+                        logger.throwArgumentError("provided ENS name resolves to null", "tx.to", to);
+                    }
+                    return address;
+                }));
             }
             if (tx.gasPrice == null) {
                 tx.gasPrice = this.getGasPrice();
@@ -137,6 +147,9 @@ export class Signer {
             }
             if (tx.gasLimit == null) {
                 tx.gasLimit = this.estimateGas(tx).catch((error) => {
+                    if (forwardErrors.indexOf(error.code) >= 0) {
+                        throw error;
+                    }
                     return logger.throwError("cannot estimate gas; transaction may fail or may require manual gas limit", Logger.errors.UNPREDICTABLE_GAS_LIMIT, {
                         error: error,
                         tx: tx
@@ -193,6 +206,9 @@ export class VoidSigner extends Signer {
     }
     signTransaction(transaction) {
         return this._fail("VoidSigner cannot sign transactions", "signTransaction");
+    }
+    _signTypedData(domain, types, value) {
+        return this._fail("VoidSigner cannot sign typed data", "signTypedData");
     }
     connect(provider) {
         return new VoidSigner(this.address, provider);

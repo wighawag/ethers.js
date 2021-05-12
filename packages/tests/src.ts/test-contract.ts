@@ -6,7 +6,7 @@ import { ethers } from "ethers";
 
 import contractData from "./test-contract.json";
 
-const provider = new ethers.providers.InfuraProvider('rinkeby');
+const provider = new ethers.providers.InfuraProvider("rinkeby", "49a0efa3aaee4fd99797bfa94d8ce2f1");
 //const provider = ethers.getDefaultProvider("rinkeby");
 
 const TIMEOUT_PERIOD = 120000;
@@ -44,7 +44,7 @@ function equals(name: string, actual: any, expected: any): void {
 async function TestContractEvents() {
     const data = await ethers.utils.fetchJson('https://api.ethers.io/api/v1/?action=triggerTest&address=' + contract.address);
 
-    console.log('  *** Triggered Transaction Hash: ' + data.hash);
+    console.log('*** Triggered Transaction Hash: ' + data.hash);
 
     contract.on("error", (error) => {
         console.log(error);
@@ -91,7 +91,7 @@ async function TestContractEvents() {
             waitForEvent('TestV2', [ { indexed: true }, [ p0, p1 ] ]),
             waitForEvent('TestV2Nested', [ { indexed: true }, [ p0_1, p1_1, [ p0, p1 ] ] ]),
         ]).then(function(result) {
-            resolve();
+            resolve(result);
         });
     });
 }

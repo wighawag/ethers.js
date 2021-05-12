@@ -1,29 +1,33 @@
 'use strict';
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    Object.defineProperty(o, k2, { enumerable: true, get: function() { return m[k]; } });
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || function (mod) {
+    if (mod && mod.__esModule) return mod;
+    var result = {};
+    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
+    __setModuleDefault(result, mod);
+    return result;
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-var fs_1 = __importDefault(require("fs"));
-var path_1 = __importDefault(require("path"));
-var browserify_zlib_1 = __importDefault(require("browserify-zlib"));
+exports.TestCase = exports.randomNumber = exports.randomHexString = exports.randomBytes = exports.saveTests = exports.loadTests = exports.loadData = void 0;
+var disk_utils_1 = require("./disk-utils");
+Object.defineProperty(exports, "loadData", { enumerable: true, get: function () { return disk_utils_1.loadData; } });
+Object.defineProperty(exports, "loadTests", { enumerable: true, get: function () { return disk_utils_1.loadTests; } });
+Object.defineProperty(exports, "saveTests", { enumerable: true, get: function () { return disk_utils_1.saveTests; } });
 var random_1 = require("./random");
-exports.randomBytes = random_1.randomBytes;
-exports.randomHexString = random_1.randomHexString;
-exports.randomNumber = random_1.randomNumber;
-function saveTests(tag, data) {
-    //let filename = path.resolve(__dirname, 'testcases', tag + '.json.gz');
-    var filename = path_1.default.resolve(__dirname, '../testcases', tag + '.json.gz');
-    fs_1.default.writeFileSync(filename, browserify_zlib_1.default.gzipSync(JSON.stringify(data, undefined, ' ') + '\n'));
-    console.log('Save testcase: ' + filename);
-}
-exports.saveTests = saveTests;
-function loadTests(tag) {
-    var filename = path_1.default.resolve(__dirname, '../testcases', tag + '.json.gz');
-    return JSON.parse(browserify_zlib_1.default.gunzipSync(fs_1.default.readFileSync(filename)).toString());
-}
-exports.loadTests = loadTests;
-function loadData(filename) {
-    return fs_1.default.readFileSync(path_1.default.resolve(__dirname, filename));
-}
-exports.loadData = loadData;
+Object.defineProperty(exports, "randomBytes", { enumerable: true, get: function () { return random_1.randomBytes; } });
+Object.defineProperty(exports, "randomHexString", { enumerable: true, get: function () { return random_1.randomHexString; } });
+Object.defineProperty(exports, "randomNumber", { enumerable: true, get: function () { return random_1.randomNumber; } });
+var TestCase = __importStar(require("./testcases"));
+exports.TestCase = TestCase;
 //# sourceMappingURL=index.js.map

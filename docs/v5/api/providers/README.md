@@ -12,7 +12,9 @@ Default Provider
 
 #### *ethers* . **getDefaultProvider**( [ network , [ options ] ] ) => *[Provider](/v5/api/providers/provider/)*
 
-Returns a new Provider, backed by multiple services, connected to *network*. Is no *network* is provided, **homestead** (i.e. mainnet) is used.
+Returns a new Provider, backed by multiple services, connected to *network*. If no *network* is provided, **homestead** (i.e. mainnet) is used.
+
+The *network* may also be a URL to connect to, such as `http://localhost:8545` or `wss://example.com`.
 
 The *options* is an object, with the following properties:
 
@@ -23,7 +25,7 @@ Option Properties
 
 #### Note: API Keys
 
-It is highly recommended for production services that to acquire and specify an API Key for each sercice.
+It is highly recommended for production services to acquire and specify an API Key for each service.
 
 The default API Keys used by ethers are shared across all users, so services may throttle all services that are using the default API Keys during periods of load without realizing it.
 
@@ -32,6 +34,19 @@ Many services also have monitoring and usage metrics, which are only available i
 Some services also provide additional paid features, which are only available when specifying an API Key.
 
 
+Networks
+--------
+
+### Custom ENS Contract
+
+```
+const network = {
+    name: "dev",
+    chianId: 1337,
+    ensAddress: customEnsAddress
+};
+```
+
 Provider Documentation
 ----------------------
 
@@ -39,6 +54,7 @@ Provider Documentation
   * [Accounts Methods](provider)
   * [Blocks Methods](provider)
   * [Ethereum Naming Service (ENS) Methods](provider)
+  * [EnsResolver](provider)
   * [Logs Methods](provider)
   * [Network Status Methods](provider)
   * [Transactions Methods](provider)
@@ -61,6 +77,7 @@ Provider Documentation
   * [WebSocketProvider](other)
 * [Types](types)
   * [BlockTag](types)
+  * [Networkish](types)
   * [Network](types)
   * [Block](types)
   * [Events and Logs](types)

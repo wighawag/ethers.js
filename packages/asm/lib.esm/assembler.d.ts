@@ -103,10 +103,15 @@ export declare class ScopeNode extends LabelledNode {
 export declare type Operation = {
     opcode: Opcode;
     offset: number;
+    length: number;
     pushValue?: string;
 };
 export interface Bytecode extends Array<Operation> {
     getOperation(offset: number): Operation;
+    getByte(offset: number): number;
+    getBytes(offset: number, length: number): Uint8Array;
+    byteLength: number;
+    operationCount: number;
 }
 export declare function disassemble(bytecode: string): Bytecode;
 export declare function formatBytecode(bytecode: Array<Operation>): string;
@@ -171,3 +176,4 @@ export declare type SemanticError = {
 export declare function parse(code: string, options?: ParserOptions): Node;
 export declare function assemble(ast: Node, options?: AssemblerOptions): Promise<string>;
 export {};
+//# sourceMappingURL=assembler.d.ts.map

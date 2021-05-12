@@ -9,19 +9,24 @@
   "dependencies": {
     "@babel/parser": "7.8.4",
     "@babel/types": "7.8.3",
-    "@ethersproject/asm": "^5.0.0",
-    "@ethersproject/basex": "^5.0.0",
-    "ethers": "^5.0.0",
-    "mime-types": "2.1.11",
+    "@ethersproject/asm": "^5.1.0",
+    "@ethersproject/basex": "^5.1.0",
+    "ethers": "^5.1.0",
     "scrypt-js": "3.0.1",
-    "solc": "0.5.10",
-    "solidity-parser-antlr": "^0.3.2"
+    "solc": "0.7.1"
   },
   "description": "Command-Line Interface scripts and releated utilities.",
-  "devDependencies": {
-    "@types/node": "^12.7.4"
-  },
   "ethereum": "donations.ethers.eth",
+  "funding": [
+    {
+      "type": "individual",
+      "url": "https://gitcoin.co/grants/13/ethersjs-complete-simple-and-tiny-2"
+    },
+    {
+      "type": "individual",
+      "url": "https://www.buymeacoffee.com/ricmoo"
+    }
+  ],
   "keywords": [
     "Ethereum",
     "ethers",
@@ -35,13 +40,15 @@
     "access": "public"
   },
   "repository": {
+    "directory": "packages/cli",
     "type": "git",
     "url": "git://github.com/ethers-io/ethers.js.git"
   },
   "scripts": {
     "test": "exit 1"
   },
-  "tarballHash": "0xfdc0fad9825a96be6014812af5569db22a09cbf187160093655e0760ea47b114",
+  "sideEffects": false,
+  "tarballHash": "0x9c9f38555bb4ec0c46a732e6dbfac897b29080b3946008a7912196e700745a43",
   "types": "./lib/index.d.ts",
-  "version": "5.0.2"
+  "version": "5.1.0"
 }

@@ -1,26 +1,27 @@
 _section: Types
 
 _subsection: BlockTag @<providers-BlockTag>
-A **BlockTag** specifies a specific location in the Blockchain.
+A **BlockTag** specifies a specific block location in the Blockchain.
 
-- **``"latest"``** -- The most recently mined block
-- **``"earliest"``** -- Block #0
-- **``"pending"``** -- The block currently being prepared for mining; not all
+- **``"latest"``** - The most recently mined block
+- **``"earliest"``** - Block #0
+- **``"pending"``** - The block currently being prepared for mining; not all
   operations and backends support this BlockTag
-- **//number//** -- The block at this height
-- **//a negative number//** -- The block this many blocks ago
+- **//number//** - The block at this height
+- **//a negative number//** - The block this many blocks ago
+- **//hex string//** - The block at this height (as a hexidecimal value)
 
-_heading: EventType @<providers-EventType>
+_subsection: Networkish @<providers-Networkish>
+A **Networkish** may be any of the following:
 
-And **EventType** can be any of the following.
-
-- **//string//** -- TODO...
-- **//Array<string<[[DataHexString]]<32>> | Array<string<[[DataHexString]]<32>>>>//** -- TODO...
-- **//[[providers-EventFilter]]//** -- TODO...
-
+- a [[providers-Network]] object
+- the name of a common network as a string (e.g. ``"homestead"``)
+- the chain ID a network as a number; if the chain ID is that of a
+  common network, the ``name`` and ``ensAddress`` will be populated, otherwise,
+  the default name ``"unknown"`` and no ``ensAddress`` is used
 
 _subsection: Network @<providers-Network>
-A **Network** represents an Etherem network.
+A **Network** represents an Ethereum network.
 
 _property: network.name => string
 The human-readable name of the network, such as ``homestead``. If the network
@@ -50,19 +51,19 @@ The timestamp of this block.
 _property: block.nonce => string<[[DataHexString]]>
 The nonce used as part of the proof-of-work to mine this block.
 
-This property is generally of little interest developers.
+This property is generally of little interest to developers.
 
 _property: block.difficulty => number
 The difficulty target required to be met by the miner of the block.
 
-This property is generally of little interest developers.
+This property is generally of little interest to developers.
 
 _property: block.gasLimit => [[BigNumber]]
 The maximum amount of gas that this block was permitted to use. This
 is a value that can be voted up or voted down by miners and is used
 to automatically adjust the bandwidth requirements of the network.
 
-This property is generally of little interest developers.
+This property is generally of little interest to developers.
 
 _property: block.gasUsed => [[BigNumber]]
 The total amount of gas used by all transactions in this block.
@@ -74,7 +75,7 @@ miner that mined this block would like the subsidy reward to go to.
 _property: block.extraData => string
 This is extra data a miner may choose to include when mining a block.
 
-This property is generally of little interest developers.
+This property is generally of little interest to developers.
 
 _heading: Block (with transaction hashes)
 
@@ -102,10 +103,15 @@ _heading: EventFilter @<providers-EventFilter>
 _property: filter.address => string<[[address]]>
 The address to filter by, or ``null`` to match any address.
 
-_property: filter.topics => Array<string<[[DataHexString]]<32>> | Array<string<[[DataHexString]]<32>>>>
-The topics to filter by, or ``null`` to match any topics. Each entry represents an
-**AND** condition that must match, or may be ``null`` to match anything. If a given
-entry is an Array, then that entry is treated as an **OR** for any value in the entry.
+_property: filter.topics => Array<string<[Data](DataHexString)<32>> | Array<string<[Data](DataHexString)<32>>>>
+The topics to filter by or ``null`` to match any topics.
+
+Each entry represents an **AND** condition that must match, or may
+be ``null`` to match anything. If a given entry is an Array, then
+that entry is treated as an **OR** for any value in the entry.
+
+See [Filters](events--filters) for more details and examples
+on specifying complex filters.
 
 _heading: Filter @<providers-Filter> @INHERIT<[[providers-EventFilter]]>
 
@@ -196,7 +202,18 @@ The chain ID this transaction is authorized on, as specified by
 If the chain ID is 0 will disable EIP-155 and the transaction will be valid
 on any network. This can be **dangerous** and care should be taken, since it
 allows transactions to be replayed on networks that were possibly not
-intended.
+intended. Intentionally-replayable transactions are also disabled by default
+on recent versions of Geth and require configuration to enable.
+
+_property: transactionRequest.type => null | number
+
+The [[link-eip-2718]] type of this transaction envelope, or ``null``
+for legacy transactions that do not have an envelope.
+
+_property: transactionRequest.accessList => [[providers-AccessListish]]
+
+The [[providers-AccessList]] to include in an [[link-eip-2930]] transaction, which will
+include a ``type`` of ``1``.
 
 _heading: TransactionResponse @<providers-TransactionResponse> @INHERIT<[[Transaction]]>
 
@@ -222,14 +239,33 @@ transaction was mined.
 _property: transaction.raw => string<[[DataHexString]]>
 The serialized transaction.
 
-_property: transaction.wait([ confirmations = 1 ]) => Promise<[[providers-TransactionReceipt]]>
-Wait for //confirmations//. If 0, and the transaction has not been mined,
-``null`` is returned.
+_property: transaction.wait([ confirms = 1 ]) => Promise<[[providers-TransactionReceipt]]>
+Resolves to the [[providers-TransactionReceipt]] once the transaction
+has been included in the chain for //confirms// blocks. If //confirms//
+is 0, and the transaction has not been mined, ``null`` is returned.
+
+If the transaction execution failed (i.e. the receipt status is ``0``),
+a [CALL_EXCEPTION](errors--call-exception) Error will be rejected with
+the following properties:
+
+- ``error.transaction`` - the original transaction
+- ``error.transactionHash`` - the hash of the transaction
+- ``error.receipt`` - the actual receipt, with the status of ``0``
+
+_property: transactionRequest.type => null | number
+
+The [[link-eip-2718]] type of this transaction envelope, or ``null``
+for legacy transactions that do not have an envelope.
+
+_property: transactionRequest.accessList => [[providers-AccessList]]
+
+The [[providers-AccessList]] included in an [[link-eip-2930]] transaction, which will
+also have its ``type`` equal to ``1``.
 
 _heading: TransactionReceipt @<providers-TransactionReceipt>
 
 _property: receipt.to => string<[[address]]>
-The address this transaction is to. This is ``null`` if the the
+The address this transaction is to. This is ``null`` if the
 transaction was an **init transaction**, used to deploy a contract.
 
 _property: receipt.from => string<[[address]]>
@@ -264,7 +300,7 @@ The amount of gas actually used by this transaction.
 
 _property: receipt.logsBloom => string<[[DataHexString]]>
 A [bloom-filter](link-wiki-bloomfilter), which
-incldues all the addresses and topics included in any log in this
+includes all the addresses and topics included in any log in this
 transaction.
 
 _property: receipt.blockHash => string<[[DataHexString]]<32>>
@@ -286,7 +322,7 @@ including the actual block it was mined in.
 
 _property: receipt.cumulativeGasUsed => [[BigNumber]]
 For the block this transaction was included in, this is the sum of the
-gas used used by each transaction in the ordered list of transactions
+gas used by each transaction in the ordered list of transactions
 up to (and including) this transaction.
 
 This is generally of little interest to developers.
@@ -299,3 +335,110 @@ _property: receipt.status => boolean
 The status of a transaction is 1 is successful or 0 if it was
 reverted. Only transactions included in blocks [post-Byzantium Hard Fork](link-eip-609)
 have this property.
+
+_subsection: Access Lists
+
+An Access List is optional an includes a list of addresses and storage
+slots for that address which should be //warmed// or pre-fetched for
+use within the execution of this transaction. A //warmed// value has an
+additional upfront cost to access, but is discounted throughout the code
+execution for reading and writing.
+
+_heading: AccessListish @<providers-AccessListish>
+
+A looser description of an [[providers-AccessList]], which will be
+converted internally using [accessListify](utils-accessListify).
+
+
+It may be any of:
+
+- any [[providers-AccessList]]
+- an Array of 2-element Arrays, where the first element is the address
+  and second array is an array of storage keys
+- an object, whose keys represent the addresses and each value is an
+  array of storage keys
+
+When using the object form (the last option), the addresses and storage
+slots will be sorted. If an explicit order for the access list is
+required, one of the other forms must be used. Most developers
+**do not** require explicit order.
+
+_code: equivalent to the AccessList example below @lang<javascript>
+
+// Option 1:
+// AccessList
+// see below
+
+// Option 2:
+// Array< [ Address, Array<Bytes32> ] >
+[
+  [
+    "0x0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e",
+    [
+      "0x0000000000000000000000000000000000000000000000000000000000000004",
+      "0x0bcad17ecf260d6506c6b97768bdc2acfb6694445d27ffd3f9c1cfbee4a9bd6d"
+    ]
+  ],
+  [
+    "0x5FfC014343cd971B7eb70732021E26C35B744cc4",
+    [
+        "0x0000000000000000000000000000000000000000000000000000000000000001"
+    ]
+  ]
+]
+// <hide>
+;
+// </hide>
+
+// Option 3:
+// Record<Address, Array<Bytes32>>
+// <hide>
+(
+// </hide>
+{
+  "0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e": [
+    "0x0000000000000000000000000000000000000000000000000000000000000004",
+    "0x0bcad17ecf260d6506c6b97768bdc2acfb6694445d27ffd3f9c1cfbee4a9bd6d"
+  ],
+  "0x5FfC014343cd971B7eb70732021E26C35B744cc4": [
+    "0x0000000000000000000000000000000000000000000000000000000000000001"
+  ]
+}
+// <hide>
+)
+// </hide>
+
+
+_heading: AccessList @<providers-AccessList>
+
+An [[link-eip-2930]] transaction allows an optional **AccessList**
+which causes a transaction to //warm// (i.e. pre-cache) another
+addresses state and the specified storage keys.
+
+This incurs an increased intrinsic cost for the transaction, but provides
+discounts for storage and state access throughout the execution of the
+transaction.
+
+_code: example access list
+
+// Array of objects with the form:
+// {
+//   address: Address,
+//   storageKey: Array< DataHexString< 32 > >
+// }
+
+[
+  {
+    address: "0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e",
+    storageKeys: [
+        "0x0000000000000000000000000000000000000000000000000000000000000004",
+        "0x0bcad17ecf260d6506c6b97768bdc2acfb6694445d27ffd3f9c1cfbee4a9bd6d"
+    ]
+  },
+  {
+    address: "0x5FfC014343cd971B7eb70732021E26C35B744cc4",
+    storageKeys: [
+        "0x0000000000000000000000000000000000000000000000000000000000000001"
+    ]
+  }
+]

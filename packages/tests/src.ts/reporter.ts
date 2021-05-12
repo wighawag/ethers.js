@@ -1,5 +1,4 @@
 /* istanbul ignore file */
-
 'use strict';
 
 // Maximum time in seconds to suppress output
@@ -37,7 +36,15 @@ interface Runner {
   on(event: string, callback: (...args: Array<any>) => void): Runner;
 }
 
+export type LogFunc = (message: string) => void;
+
+let _logFunc: LogFunc = console.log.bind(console);
+export function setLogFunc(logFunc: LogFunc) {
+    _logFunc = logFunc
+}
+
 export function Reporter(runner: Runner) {
+
     let suites: Array<Suite> = [];
 
     // Force Output; Keeps the console output alive with periodic updates
@@ -59,7 +66,7 @@ export function Reporter(runner: Runner) {
 
     function log(message?: string): void {
         if (!message) { message = ''; }
-        console.log(getIndent() + message);
+        _logFunc(getIndent() + message);
         lastOutput = getTime();
     }
 
@@ -99,8 +106,7 @@ export function Reporter(runner: Runner) {
             extra = " (" + extras.join(",") + ")  ******** WARNING! ********";
         }
 
-        log(`  Total Tests: ${ suite._countPass }/${ suite._countTotal } passed ${ getDelta(suite._t0) } ${ extra} `);
-        log();
+        log(`  Total Tests: ${ suite._countPass }/${ suite._countTotal } passed ${ getDelta(suite._t0) } ${ extra} \n`);
 
         if (suites.length > 0) {
             let currentSuite = suites[suites.length - 1];
@@ -110,13 +116,22 @@ export function Reporter(runner: Runner) {
             currentSuite._countTotal += suite._countTotal;
         } else {
             clearTimeout(timer);
+            const status = (suite._countPass === suite._countTotal) ? 0: 1;
+            log(`# status:${ status }`);
+
+            // Force quit after 5s
+            setTimeout(() => {
+                process.exit(status);
+            }, 5000);
         }
     });
 
     runner.on('test', function(test) {
         forceOutput();
-        const currentSuite = suites[suites.length - 1];
-        currentSuite._countTotal++;
+        if (test._currentRetry === 0) {
+            const currentSuite = suites[suites.length - 1];
+            currentSuite._countTotal++;
+        }
     });
 
     runner.on('fail', function(test, error) {

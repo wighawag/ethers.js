@@ -3,12 +3,14 @@
 // See: https://github.com/ethereum/wiki/wiki/JSON-RPC
 
 import { Provider, TransactionRequest, TransactionResponse } from "@ethersproject/abstract-provider";
-import { Signer } from "@ethersproject/abstract-signer";
+import { Signer, TypedDataDomain, TypedDataField, TypedDataSigner } from "@ethersproject/abstract-signer";
 import { BigNumber } from "@ethersproject/bignumber";
-import { Bytes, hexlify, hexValue } from "@ethersproject/bytes";
+import { Bytes, hexlify, hexValue, isHexString } from "@ethersproject/bytes";
+import { _TypedDataEncoder } from "@ethersproject/hash";
 import { Network, Networkish } from "@ethersproject/networks";
 import { checkProperties, deepCopy, Deferrable, defineReadOnly, getStatic, resolveProperties, shallowCopy } from "@ethersproject/properties";
 import { toUtf8Bytes } from "@ethersproject/strings";
+import { AccessList, accessListify } from "@ethersproject/transactions";
 import { ConnectionInfo, fetchJson, poll } from "@ethersproject/web";
 
 import { Logger } from "@ethersproject/logger";
@@ -17,6 +19,67 @@ const logger = new Logger(version);
 
 import { BaseProvider, Event } from "./base-provider";
 
+
+const errorGas = [ "call", "estimateGas" ];
+
+function checkError(method: string, error: any, params: any): any {
+    // Undo the "convenience" some nodes are attempting to prevent backwards
+    // incompatibility; maybe for v6 consider forwarding reverts as errors
+    if (method === "call" && error.code === Logger.errors.SERVER_ERROR) {
+        const e = error.error;
+        if (e && e.message.match("reverted") && isHexString(e.data)) {
+            return e.data;
+        }
+    }
+
+    let message = error.message;
+    if (error.code === Logger.errors.SERVER_ERROR && error.error && typeof(error.error.message) === "string") {
+        message = error.error.message;
+    } else if (typeof(error.body) === "string") {
+        message = error.body;
+    } else if (typeof(error.responseText) === "string") {
+        message = error.responseText;
+    }
+    message = (message || "").toLowerCase();
+
+    const transaction = params.transaction || params.signedTransaction;
+
+    // "insufficient funds for gas * price + value + cost(data)"
+    if (message.match(/insufficient funds/)) {
+        logger.throwError("insufficient funds for intrinsic transaction cost", Logger.errors.INSUFFICIENT_FUNDS, {
+            error, method, transaction
+        });
+    }
+
+    // "nonce too low"
+    if (message.match(/nonce too low/)) {
+        logger.throwError("nonce has already been used", Logger.errors.NONCE_EXPIRED, {
+            error, method, transaction
+        });
+    }
+
+    // "replacement transaction underpriced"
+    if (message.match(/replacement transaction underpriced/)) {
+        logger.throwError("replacement fee too low", Logger.errors.REPLACEMENT_UNDERPRICED, {
+            error, method, transaction
+        });
+    }
+
+    // "replacement transaction underpriced"
+    if (message.match(/only replay-protected/)) {
+        logger.throwError("legacy pre-eip-155 transactions not supported", Logger.errors.UNSUPPORTED_OPERATION, {
+            error, method, transaction
+        });
+    }
+
+    if (errorGas.indexOf(method) >= 0 && message.match(/gas required exceeds allowance|always failing transaction|execution reverted/)) {
+        logger.throwError("cannot estimate gas; transaction may fail or may require manual gas limit", Logger.errors.UNPREDICTABLE_GAS_LIMIT, {
+            error, method, transaction
+        });
+    }
+
+    throw error;
+}
 
 function timer(timeout: number): Promise<any> {
     return new Promise(function(resolve) {
@@ -43,7 +106,7 @@ function getLowerCase(value: string): string {
 
 const _constructorGuard = {};
 
-export class JsonRpcSigner extends Signer {
+export class JsonRpcSigner extends Signer implements TypedDataSigner {
     readonly provider: JsonRpcProvider;
     _index: number;
     _address: string;
@@ -133,25 +196,7 @@ export class JsonRpcSigner extends Signer {
             return this.provider.send("eth_sendTransaction", [ hexTx ]).then((hash) => {
                 return hash;
             }, (error) => {
-                if (error.responseText) {
-                    // See: JsonRpcProvider.sendTransaction (@TODO: Expose a ._throwError??)
-                    if (error.responseText.indexOf("insufficient funds") >= 0) {
-                        logger.throwError("insufficient funds", Logger.errors.INSUFFICIENT_FUNDS, {
-                            transaction: tx
-                        });
-                    }
-                    if (error.responseText.indexOf("nonce too low") >= 0) {
-                        logger.throwError("nonce has already been used", Logger.errors.NONCE_EXPIRED, {
-                            transaction: tx
-                        });
-                    }
-                    if (error.responseText.indexOf("replacement transaction underpriced") >= 0) {
-                        logger.throwError("replacement fee too low", Logger.errors.REPLACEMENT_UNDERPRICED, {
-                            transaction: tx
-                        });
-                    }
-                }
-                throw error;
+                return checkError("sendTransaction", error, hexTx);
             });
         });
     }
@@ -176,21 +221,34 @@ export class JsonRpcSigner extends Signer {
         });
     }
 
-    signMessage(message: Bytes | string): Promise<string> {
+    async signMessage(message: Bytes | string): Promise<string> {
         const data = ((typeof(message) === "string") ? toUtf8Bytes(message): message);
-        return this.getAddress().then((address) => {
+        const address = await this.getAddress();
 
-            // https://github.com/ethereum/wiki/wiki/JSON-RPC#eth_sign
-            return this.provider.send("eth_sign", [ address.toLowerCase(), hexlify(data) ]);
-        });
+        // https://github.com/ethereum/wiki/wiki/JSON-RPC#eth_sign
+        return await this.provider.send("eth_sign", [ address.toLowerCase(), hexlify(data) ]);
     }
 
-    unlock(password: string): Promise<boolean> {
+    async _signTypedData(domain: TypedDataDomain, types: Record<string, Array<TypedDataField>>, value: Record<string, any>): Promise<string> {
+        // Populate any ENS names (in-place)
+        const populated = await _TypedDataEncoder.resolveNames(domain, types, value, (name: string) => {
+            return this.provider.resolveName(name);
+        });
+
+        const address = await this.getAddress();
+
+        return await this.provider.send("eth_signTypedData_v4", [
+            address.toLowerCase(),
+            JSON.stringify(_TypedDataEncoder.getPayload(populated.domain, types, populated.value))
+        ]);
+    }
+
+    async unlock(password: string): Promise<boolean> {
         const provider = this.provider;
 
-        return this.getAddress().then(function(address) {
-            return provider.send("personal_unlockAccount", [ address.toLowerCase(), password, null ]);
-        });
+        const address = await this.getAddress();
+
+        return provider.send("personal_unlockAccount", [ address.toLowerCase(), password, null ]);
     }
 }
 
@@ -214,7 +272,8 @@ class UncheckedJsonRpcSigner extends JsonRpcSigner {
 }
 
 const allowedTransactionKeys: { [ key: string ]: boolean } = {
-    chainId: true, data: true, gasLimit: true, gasPrice:true, nonce: true, to: true, value: true
+    chainId: true, data: true, gasLimit: true, gasPrice:true, nonce: true, to: true, value: true,
+    type: true, accessList: true
 }
 
 export class JsonRpcProvider extends BaseProvider {
@@ -222,6 +281,17 @@ export class JsonRpcProvider extends BaseProvider {
 
     _pendingFilter: Promise<number>;
     _nextId: number;
+
+    // During any given event loop, the results for a given call will
+    // all be the same, so we can dedup the calls to save requests and
+    // bandwidth. @TODO: Try out generalizing this against send?
+    _eventLoopCache: Record<string, Promise<any>>;
+    get _cache(): Record<string, Promise<any>> {
+        if (this._eventLoopCache == null) {
+            this._eventLoopCache = { };
+        }
+        return this._eventLoopCache;
+    }
 
     constructor(url?: ConnectionInfo | string, network?: Networkish) {
         logger.checkNew(new.target, JsonRpcProvider);
@@ -261,7 +331,19 @@ export class JsonRpcProvider extends BaseProvider {
         return "http:/\/localhost:8545";
     }
 
-    async detectNetwork(): Promise<Network> {
+    detectNetwork(): Promise<Network> {
+        if (!this._cache["detectNetwork"]) {
+            this._cache["detectNetwork"] = this._uncachedDetectNetwork();
+
+            // Clear this cache at the beginning of the next event loop
+            setTimeout(() => {
+                this._cache["detectNetwork"] = null;
+            }, 0);
+        }
+        return this._cache["detectNetwork"];
+    }
+
+    async _uncachedDetectNetwork(): Promise<Network> {
         await timer(0);
 
         let chainId = null;
@@ -319,7 +401,14 @@ export class JsonRpcProvider extends BaseProvider {
             provider: this
         });
 
-        return fetchJson(this.connection, JSON.stringify(request), getResult).then((result) => {
+        // We can expand this in the future to any call, but for now these
+        // are the biggest wins and do not require any serializing parameters.
+        const cache = ([ "eth_chainId", "eth_blockNumber" ].indexOf(method) >= 0);
+        if (cache && this._cache[method]) {
+            return this._cache[method];
+        }
+
+        const result = fetchJson(this.connection, JSON.stringify(request), getResult).then((result) => {
             this.emit("debug", {
                 action: "response",
                 request: request,
@@ -339,6 +428,16 @@ export class JsonRpcProvider extends BaseProvider {
 
             throw error;
         });
+
+        // Cache the fetch, but clear it on the next event loop
+        if (cache) {
+            this._cache[method] = result;
+            setTimeout(() => {
+                this._cache[method] = null;
+            }, 0);
+        }
+
+        return result;
     }
 
     prepareRequest(method: string, params: any): [ string, Array<any> ] {
@@ -401,35 +500,17 @@ export class JsonRpcProvider extends BaseProvider {
         return null;
     }
 
-    perform(method: string, params: any): Promise<any> {
+    async perform(method: string, params: any): Promise<any> {
         const args = this.prepareRequest(method,  params);
 
         if (args == null) {
             logger.throwError(method + " not implemented", Logger.errors.NOT_IMPLEMENTED, { operation: method });
         }
-
-        // We need a little extra logic to process errors from sendTransaction
-        if (method === "sendTransaction") {
-            return this.send(args[0], args[1]).catch((error) => {
-                if (error.responseText) {
-                    // "insufficient funds for gas * price + value"
-                    if (error.responseText.indexOf("insufficient funds") > 0) {
-                        logger.throwError("insufficient funds", Logger.errors.INSUFFICIENT_FUNDS, { });
-                    }
-                    // "nonce too low"
-                    if (error.responseText.indexOf("nonce too low") > 0) {
-                        logger.throwError("nonce has already been used", Logger.errors.NONCE_EXPIRED, { });
-                    }
-                    // "replacement transaction underpriced"
-                    if (error.responseText.indexOf("replacement transaction underpriced") > 0) {
-                        logger.throwError("replacement fee too low", Logger.errors.REPLACEMENT_UNDERPRICED, { });
-                    }
-                }
-                throw error;
-            });
+        try {
+            return await this.send(args[0], args[1])
+        } catch (error) {
+            return checkError(method, error, params);
         }
-
-        return this.send(args[0], args[1])
     }
 
     _startEvent(event: Event): void {
@@ -497,7 +578,7 @@ export class JsonRpcProvider extends BaseProvider {
     //       before this is called
     // @TODO: This will likely be removed in future versions and prepareRequest
     //        will be the preferred method for this.
-    static hexlifyTransaction(transaction: TransactionRequest, allowExtra?: { [key: string]: boolean }): { [key: string]: string } {
+    static hexlifyTransaction(transaction: TransactionRequest, allowExtra?: { [key: string]: boolean }): { [key: string]: string | AccessList } {
         // Check only allowed properties are given
         const allowed = shallowCopy(allowedTransactionKeys);
         if (allowExtra) {
@@ -505,12 +586,13 @@ export class JsonRpcProvider extends BaseProvider {
                 if (allowExtra[key]) { allowed[key] = true; }
             }
         }
+
         checkProperties(transaction, allowed);
 
-        const result: { [key: string]: string } = {};
+        const result: { [key: string]: string | AccessList } = {};
 
         // Some nodes (INFURA ropsten; INFURA mainnet is fine) do not like leading zeros.
-        ["gasLimit", "gasPrice", "nonce", "value"].forEach(function(key) {
+        ["gasLimit", "gasPrice", "type", "nonce", "value"].forEach(function(key) {
             if ((<any>transaction)[key] == null) { return; }
             const value = hexValue((<any>transaction)[key]);
             if (key === "gasLimit") { key = "gas"; }
@@ -521,6 +603,10 @@ export class JsonRpcProvider extends BaseProvider {
             if ((<any>transaction)[key] == null) { return; }
             result[key] = hexlify((<any>transaction)[key]);
         });
+
+        if ((<any>transaction).accessList) {
+            result["accessList"] = accessListify((<any>transaction).accessList);
+        }
 
         return result;
     }

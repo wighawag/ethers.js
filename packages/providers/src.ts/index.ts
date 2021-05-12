@@ -16,22 +16,24 @@ import {
 import { getNetwork } from "@ethersproject/networks";
 import { Network, Networkish } from "@ethersproject/networks";
 
-import { BaseProvider } from "./base-provider";
+import { BaseProvider, EnsProvider, EnsResolver, Resolver } from "./base-provider";
 
-import { AlchemyProvider } from "./alchemy-provider";
+import { AlchemyProvider, AlchemyWebSocketProvider } from "./alchemy-provider";
 import { CloudflareProvider } from "./cloudflare-provider";
 import { EtherscanProvider } from "./etherscan-provider";
 import { FallbackProvider } from "./fallback-provider";
 import { IpcProvider } from "./ipc-provider";
-import { InfuraProvider } from "./infura-provider";
+import { InfuraProvider, InfuraWebSocketProvider } from "./infura-provider";
 import { JsonRpcProvider, JsonRpcSigner } from "./json-rpc-provider";
+import { JsonRpcBatchProvider } from "./json-rpc-batch-provider";
 import { NodesmithProvider } from "./nodesmith-provider";
+import { PocketProvider } from "./pocket-provider";
 import { StaticJsonRpcProvider, UrlJsonRpcProvider } from "./url-json-rpc-provider";
 import { Web3Provider } from "./web3-provider";
 import { WebSocketProvider } from "./websocket-provider";
 import { ExternalProvider, JsonRpcFetchFunc } from "./web3-provider";
 
-import { Formatter } from "./formatter";
+import { CommunityResourcable, Formatter, isCommunityResourcable, isCommunityResource, showThrottleMessage } from "./formatter";
 
 import { Logger } from "@ethersproject/logger";
 import { version } from "./_version";
@@ -78,6 +80,7 @@ function getDefaultProvider(network?: Network | string, options?: any): BaseProv
         InfuraProvider,
         JsonRpcProvider,
         NodesmithProvider,
+        PocketProvider,
         Web3Provider,
 
         IpcProvider,
@@ -93,6 +96,8 @@ export {
     Provider,
     BaseProvider,
 
+    Resolver,
+
     UrlJsonRpcProvider,
 
     ///////////////////////
@@ -101,11 +106,15 @@ export {
     FallbackProvider,
 
     AlchemyProvider,
+    AlchemyWebSocketProvider,
     CloudflareProvider,
     EtherscanProvider,
     InfuraProvider,
+    InfuraWebSocketProvider,
     JsonRpcProvider,
+    JsonRpcBatchProvider,
     NodesmithProvider,
+    PocketProvider,
     StaticJsonRpcProvider,
     Web3Provider,
     WebSocketProvider,
@@ -124,6 +133,9 @@ export {
 
     getDefaultProvider,
     getNetwork,
+    isCommunityResource,
+    isCommunityResourcable,
+    showThrottleMessage,
 
 
     ///////////////////////
@@ -149,6 +161,11 @@ export {
     JsonRpcFetchFunc,
 
     Network,
-    Networkish
+    Networkish,
+
+    EnsProvider,
+    EnsResolver,
+
+    CommunityResourcable
 };
 

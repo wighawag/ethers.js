@@ -1,13 +1,61 @@
 'use strict';
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    Object.defineProperty(o, k2, { enumerable: true, get: function() { return m[k]; } });
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
 var __importStar = (this && this.__importStar) || function (mod) {
     if (mod && mod.__esModule) return mod;
     var result = {};
-    if (mod != null) for (var k in mod) if (Object.hasOwnProperty.call(mod, k)) result[k] = mod[k];
-    result["default"] = mod;
+    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
+    __setModuleDefault(result, mod);
     return result;
+};
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
+var __generator = (this && this.__generator) || function (thisArg, body) {
+    var _ = { label: 0, sent: function() { if (t[0] & 1) throw t[1]; return t[1]; }, trys: [], ops: [] }, f, y, t, g;
+    return g = { next: verb(0), "throw": verb(1), "return": verb(2) }, typeof Symbol === "function" && (g[Symbol.iterator] = function() { return this; }), g;
+    function verb(n) { return function (v) { return step([n, v]); }; }
+    function step(op) {
+        if (f) throw new TypeError("Generator is already executing.");
+        while (_) try {
+            if (f = 1, y && (t = op[0] & 2 ? y["return"] : op[0] ? y["throw"] || ((t = y["return"]) && t.call(y), 0) : y.next) && !(t = t.call(y, op[1])).done) return t;
+            if (y = 0, t) op = [op[0] & 2, t.value];
+            switch (op[0]) {
+                case 0: case 1: t = op; break;
+                case 4: _.label++; return { value: op[1], done: false };
+                case 5: _.label++; y = op[1]; op = [0]; continue;
+                case 7: op = _.ops.pop(); _.trys.pop(); continue;
+                default:
+                    if (!(t = _.trys, t = t.length > 0 && t[t.length - 1]) && (op[0] === 6 || op[0] === 2)) { _ = 0; continue; }
+                    if (op[0] === 3 && (!t || (op[1] > t[0] && op[1] < t[3]))) { _.label = op[1]; break; }
+                    if (op[0] === 6 && _.label < t[1]) { _.label = t[1]; t = op; break; }
+                    if (t && _.label < t[2]) { _.label = t[2]; _.ops.push(op); break; }
+                    if (t[2]) _.ops.pop();
+                    _.trys.pop(); continue;
+            }
+            op = body.call(thisArg, _);
+        } catch (e) { op = [6, e]; y = 0; } finally { f = t = 0; }
+        if (op[0] & 5) throw op[1]; return { value: op[0] ? op[1] : void 0, done: true };
+    }
+};
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 var assert_1 = __importDefault(require("assert"));
@@ -386,7 +434,7 @@ describe('Test UTF-8 coder', function () {
             var bytes = ethers_1.ethers.utils.toUtf8Bytes(str);
             var str2 = ethers_1.ethers.utils.toUtf8String(bytes);
             var escaped = JSON.parse(ethers_1.ethers.utils._toEscapedUtf8String(bytes));
-            assert_1.default.ok(Buffer.from(str).equals(Buffer.from(bytes)), 'bytes not generated correctly - ' + bytes);
+            //            assert.ok(Buffer.from(str).equals(Buffer.from(bytes)), 'bytes not generated correctly - ' + bytes)
             assert_1.default.equal(str2, str, 'conversion not reflexive - ' + bytes);
             assert_1.default.equal(escaped, str, 'conversion not reflexive - ' + bytes);
         }
@@ -403,7 +451,7 @@ describe('Test Bytes32String coder', function () {
     });
 });
 function getHex(value) {
-    return "0x" + Buffer.from(value).toString("hex");
+    return ethers_1.ethers.utils.hexlify(ethers_1.ethers.utils.toUtf8Bytes(value));
 }
 describe("Test nameprep", function () {
     var Tests = testcases_1.loadTests("nameprep");
@@ -511,7 +559,80 @@ describe("BigNumber", function () {
             assert_1.default.ok(value.abs().eq(expected));
         });
     });
+    // Fails to create from BN (or any junk with a length) (See: #1172)
+    it("Fails on junk with a length property", function () {
+        var junk = { negative: 0, words: [1000], length: 1, red: null };
+        assert_1.default.throws(function () {
+            var value = ethers_1.ethers.BigNumber.from("100").add(junk);
+            console.log("ERROR", value);
+        }, function (error) {
+            return true;
+        });
+    });
     // @TODO: Add more tests here
+});
+describe("FixedNumber", function () {
+    {
+        var Tests = [
+            { value: "0.0", expected: "0.0" },
+            { value: "-0.0", expected: "0.0" },
+            { value: "1.0", expected: "1.0" },
+            { value: "1.00", expected: "1.0" },
+            { value: "01.00", expected: "1.0" },
+            { value: 1, expected: "1.0" },
+            { value: "-1.0", expected: "-1.0" },
+            { value: "-1.00", expected: "-1.0" },
+            { value: "-01.00", expected: "-1.0" },
+            { value: -1, expected: "-1.0" },
+        ];
+        Tests.forEach(function (test) {
+            it("Create from=" + test.value, function () {
+                var value = ethers_1.ethers.FixedNumber.from(test.value);
+                assert_1.default.equal(value.toString(), test.expected);
+            });
+        });
+    }
+    {
+        var Tests = [
+            { value: "1.0", round: 1, expected: "1.0" },
+            { value: "1.4", round: 1, expected: "1.4" },
+            { value: "1.4", round: 2, expected: "1.4" },
+            { value: "1.4", round: 0, expected: "1.0" },
+            { value: "1.5", round: 0, expected: "2.0" },
+            { value: "1.6", round: 0, expected: "2.0" },
+            { value: "-1.0", round: 1, expected: "-1.0" },
+            { value: "-1.4", round: 1, expected: "-1.4" },
+            { value: "-1.4", round: 2, expected: "-1.4" },
+            { value: "-1.4", round: 0, expected: "-1.0" },
+            { value: "-1.5", round: 0, expected: "-1.0" },
+            { value: "-1.6", round: 0, expected: "-2.0" },
+            { value: "1.51", round: 1, expected: "1.5" },
+            { value: "1.55", round: 1, expected: "1.6" },
+        ];
+        Tests.forEach(function (test) {
+            it("Rounding value=" + test.value + ", decimals=" + test.round, function () {
+                var value = ethers_1.ethers.FixedNumber.from(test.value).round(test.round);
+                assert_1.default.equal(value.toString(), test.expected);
+            });
+        });
+    }
+    {
+        var Tests = [
+            { value: "1.0", ceiling: "1.0", floor: "1.0" },
+            { value: "1.1", ceiling: "2.0", floor: "1.0" },
+            { value: "1.9", ceiling: "2.0", floor: "1.0" },
+            { value: "-1.0", ceiling: "-1.0", floor: "-1.0" },
+            { value: "-1.1", ceiling: "-1.0", floor: "-2.0" },
+            { value: "-1.9", ceiling: "-1.0", floor: "-2.0" },
+        ];
+        Tests.forEach(function (test) {
+            it("Clamping value=" + test.value, function () {
+                var value = ethers_1.ethers.FixedNumber.from(test.value);
+                assert_1.default.equal(value.floor().toString(), test.floor);
+                assert_1.default.equal(value.ceiling().toString(), test.ceiling);
+            });
+        });
+    }
 });
 describe("Logger", function () {
     var logger = new ethers_1.ethers.utils.Logger("testing/0.0");
@@ -539,6 +660,182 @@ describe("Logger", function () {
             logger.checkArgumentCount(3, 1);
         }, function (error) {
             return error.code === ethers_1.ethers.utils.Logger.errors.UNEXPECTED_ARGUMENT;
+        });
+    });
+});
+describe("Base58 Coder", function () {
+    it("decodes", function () {
+        assert_1.default.equal(ethers_1.ethers.utils.toUtf8String(ethers_1.ethers.utils.base58.decode("JxF12TrwUP45BMd")), "Hello World");
+    });
+    it("encodes", function () {
+        assert_1.default.equal(ethers_1.ethers.utils.base58.encode(ethers_1.ethers.utils.toUtf8Bytes("Hello World")), "JxF12TrwUP45BMd");
+    });
+});
+/*
+describe("Web Fetch", function() {
+    it("fetches JSON", async function() {
+        const url = "https:/\/api.etherscan.io/api?module=stats&action=ethprice&apikey=9D13ZE7XSBTJ94N9BNJ2MA33VMAY2YPIRB";
+        const getData = ethers.utils.fetchJson(url)
+    });
+});
+*/
+describe("EIP-712", function () {
+    var tests = testcases_1.loadTests("eip712");
+    tests.forEach(function (test) {
+        it("encoding " + test.name, function () {
+            var encoder = ethers_1.ethers.utils._TypedDataEncoder.from(test.types);
+            assert_1.default.equal(encoder.primaryType, test.primaryType, "instance.primaryType");
+            assert_1.default.equal(encoder.encode(test.data), test.encoded, "instance.encode()");
+            //console.log(test);
+            assert_1.default.equal(ethers_1.ethers.utils._TypedDataEncoder.getPrimaryType(test.types), test.primaryType, "getPrimaryType");
+            assert_1.default.equal(ethers_1.ethers.utils._TypedDataEncoder.hash(test.domain, test.types, test.data), test.digest, "digest");
+        });
+    });
+    tests.forEach(function (test) {
+        if (!test.privateKey) {
+            return;
+        }
+        it("signing " + test.name, function () {
+            return __awaiter(this, void 0, void 0, function () {
+                var wallet, signature;
+                return __generator(this, function (_a) {
+                    switch (_a.label) {
+                        case 0:
+                            wallet = new ethers_1.ethers.Wallet(test.privateKey);
+                            return [4 /*yield*/, wallet._signTypedData(test.domain, test.types, test.data)];
+                        case 1:
+                            signature = _a.sent();
+                            assert_1.default.equal(signature, test.signature, "signature");
+                            return [2 /*return*/];
+                    }
+                });
+            });
+        });
+    });
+});
+/*
+type EIP2930Test = {
+    hash: string,
+    data:
+};
+*/
+function _deepEquals(a, b, path) {
+    if (Array.isArray(a)) {
+        if (!Array.isArray(b)) {
+            return "{ path }:!isArray(b)";
+        }
+        if (a.length !== b.length) {
+            return "{ path }:a.length[" + a.length + "]!=b.length[" + b.length + "]";
+        }
+        for (var i = 0; i < a.length; i++) {
+            var reason = _deepEquals(a[i], b[i], path + ":" + i);
+            if (reason != null) {
+                return reason;
+            }
+        }
+        return null;
+    }
+    if (a.eq) {
+        if (!b.eq) {
+            return path + ":typeof(b)!=BigNumber";
+        }
+        return a.eq(b) ? null : path + ":!a.eq(b)";
+    }
+    if (a != null && typeof (a) === "object") {
+        if (b != null && typeof (b) !== "object") {
+            return path + ":typeof(b)!=object";
+        }
+        var keys = Object.keys(a), otherKeys = Object.keys(b);
+        keys.sort();
+        otherKeys.sort();
+        if (keys.length !== otherKeys.length) {
+            return path + ":keys(a)[" + keys.join(",") + "]!=keys(b)[" + otherKeys.join(",") + "]";
+        }
+        for (var key in a) {
+            var reason = _deepEquals(a[key], b[key], path + ":" + key);
+            if (reason != null) {
+                return reason;
+            }
+        }
+        return null;
+    }
+    if (a !== b) {
+        return path + "[" + a + " != " + b + "]";
+    }
+    return null;
+}
+function deepEquals(a, b) {
+    return _deepEquals(a, b, "");
+}
+describe("EIP-2930", function () {
+    var Tests = [
+        {
+            hash: "0x48bff7b0e603200118a672f7c622ab7d555a28f98938edb8318803eed7ea7395",
+            data: "0x01f87c030d8465cf89a0825b689432162f3581e88a5f62e8a61892b42c46e2c18f7b8080d7d6940000000000000000000000000000000000000000c080a09659cba42376dbea1433cd6afc9c8ffa38dbeff5408ffdca0ebde6207281a3eca027efbab3e6ed30b088ce0a50533364778e101c9e52acf318daec131da64e7758",
+            preimage: "0x01f839030d8465cf89a0825b689432162f3581e88a5f62e8a61892b42c46e2c18f7b8080d7d6940000000000000000000000000000000000000000c0",
+            tx: {
+                hash: "0x48bff7b0e603200118a672f7c622ab7d555a28f98938edb8318803eed7ea7395",
+                type: 1,
+                chainId: 3,
+                nonce: 13,
+                gasPrice: ethers_1.ethers.BigNumber.from("0x65cf89a0"),
+                gasLimit: ethers_1.ethers.BigNumber.from("0x5b68"),
+                to: "0x32162F3581E88a5f62e8A61892B42C46E2c18f7b",
+                value: ethers_1.ethers.BigNumber.from("0"),
+                data: "0x",
+                accessList: [
+                    {
+                        address: "0x0000000000000000000000000000000000000000",
+                        storageKeys: []
+                    }
+                ],
+                v: 0,
+                r: "0x9659cba42376dbea1433cd6afc9c8ffa38dbeff5408ffdca0ebde6207281a3ec",
+                s: "0x27efbab3e6ed30b088ce0a50533364778e101c9e52acf318daec131da64e7758",
+                from: "0x32162F3581E88a5f62e8A61892B42C46E2c18f7b",
+            }
+        },
+        {
+            hash: "0x1675a417e728fd3562d628d06955ef35b913573d9e417eb4e6a209998499c9d3",
+            data: "0x01f8e2030e8465cf89a08271ac9432162f3581e88a5f62e8a61892b42c46e2c18f7b8080f87cf87a940000000000000000000000000000000000000000f863a0deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefa00000000000111111111122222222223333333333444444444455555555556666a0deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef80a0b0646756f89817d70cdb40aa2ae8b5f43ef65d0926dcf71a7dca5280c93763dfa04d32dbd9a44a2c5639b8434b823938202f75b0a8459f3fcd9f37b2495b7a66a6",
+            preimage: "0x01f89f030e8465cf89a08271ac9432162f3581e88a5f62e8a61892b42c46e2c18f7b8080f87cf87a940000000000000000000000000000000000000000f863a0deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefa00000000000111111111122222222223333333333444444444455555555556666a0deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+            tx: {
+                hash: "0x1675a417e728fd3562d628d06955ef35b913573d9e417eb4e6a209998499c9d3",
+                type: 1,
+                chainId: 3,
+                nonce: 14,
+                gasPrice: ethers_1.ethers.BigNumber.from("0x65cf89a0"),
+                gasLimit: ethers_1.ethers.BigNumber.from("0x71ac"),
+                to: "0x32162F3581E88a5f62e8A61892B42C46E2c18f7b",
+                value: ethers_1.ethers.BigNumber.from("0"),
+                data: "0x",
+                accessList: [
+                    {
+                        address: "0x0000000000000000000000000000000000000000",
+                        storageKeys: [
+                            "0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+                            "0x0000000000111111111122222222223333333333444444444455555555556666",
+                            "0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"
+                        ]
+                    }
+                ],
+                v: 0,
+                r: "0xb0646756f89817d70cdb40aa2ae8b5f43ef65d0926dcf71a7dca5280c93763df",
+                s: "0x4d32dbd9a44a2c5639b8434b823938202f75b0a8459f3fcd9f37b2495b7a66a6",
+                from: "0x32162F3581E88a5f62e8A61892B42C46E2c18f7b",
+            }
+        },
+    ];
+    Tests.forEach(function (test) {
+        it("tx:" + test.hash, function () {
+            var tx = ethers_1.ethers.utils.parseTransaction(test.data);
+            assert_1.default.equal(tx.hash, test.hash);
+            var reason = deepEquals(tx, test.tx);
+            assert_1.default.ok(reason == null, reason);
+            var preimageData = ethers_1.ethers.utils.serializeTransaction((test.tx));
+            assert_1.default.equal(preimageData, test.preimage);
+            var data = ethers_1.ethers.utils.serializeTransaction((test.tx), test.tx);
+            assert_1.default.equal(data, test.data);
         });
     });
 });

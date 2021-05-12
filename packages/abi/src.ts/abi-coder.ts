@@ -83,15 +83,21 @@ export class AbiCoder {
 
     _getWordSize(): number { return 32; }
 
-    _getReader(data: Uint8Array): Reader {
-        return new Reader(data, this._getWordSize(), this.coerceFunc);
+    _getReader(data: Uint8Array, allowLoose?: boolean): Reader {
+        return new Reader(data, this._getWordSize(), this.coerceFunc, allowLoose);
     }
 
     _getWriter(): Writer {
         return new Writer(this._getWordSize());
     }
 
-    encode(types: Array<string | ParamType>, values: Array<any>): string {
+    getDefaultValue(types: ReadonlyArray<string | ParamType>): Result {
+        const coders: Array<Coder> = types.map((type) => this._getCoder(ParamType.from(type)));
+        const coder = new TupleCoder(coders, "_");
+        return coder.defaultValue();
+    }
+
+    encode(types: ReadonlyArray<string | ParamType>, values: ReadonlyArray<any>): string {
         if (types.length !== values.length) {
             logger.throwError("types/values length mismatch", Logger.errors.INVALID_ARGUMENT, {
                 count: { types: types.length, values: values.length },
@@ -107,10 +113,10 @@ export class AbiCoder {
         return writer.data;
     }
 
-    decode(types: Array<string | ParamType>, data: BytesLike): Result {
+    decode(types: ReadonlyArray<string | ParamType>, data: BytesLike, loose?: boolean): Result {
         const coders: Array<Coder> = types.map((type) => this._getCoder(ParamType.from(type)));
         const coder = new TupleCoder(coders, "_");
-        return coder.decode(this._getReader(arrayify(data)));
+        return coder.decode(this._getReader(arrayify(data), loose));
     }
 }
 

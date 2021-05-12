@@ -11,7 +11,7 @@ Installing
 ----------
 
 ```
-/home/ricmoo> npm install --save ethers@next
+/home/ricmoo> npm install --save ethers
 ```
 
 Importing
@@ -38,7 +38,7 @@ import { ethers } from "ethers";
 
 ```
 <script src="https://cdn.ethers.io/lib/ethers-5.0.umd.min.js"
-        type="application/javascipt"></script>
+        type="application/javascript"></script>
 ```
 
 Common Terminology
@@ -58,6 +58,20 @@ const provider = new ethers.providers.Web3Provider(window.ethereum)
 
 // The Metamask plugin also allows signing transactions to
 // send ether and pay to change state within the blockchain.
+// For this, you need the account signer...
+const signer = provider.getSigner()
+```
+
+Connecting to Ethereum: RPC
+---------------------------
+
+```
+// If you don't specify a //url//, Ethers connects to the default 
+// (i.e. ``http:/\/localhost:8545``)
+const provider = new ethers.providers.JsonRpcProvider();
+
+// The provider also allows signing transactions to
+// send ether and pay to change state within the blockchain.
 // For this, we need the account signer...
 const signer = provider.getSigner()
 ```
@@ -67,18 +81,18 @@ const signer = provider.getSigner()
 ```javascript
 // Look up the current block number
 provider.getBlockNumber()
-// { Promise: 10397126 }
+// { Promise: 11817915 }
 
-// Get the balance of an account (by address or ENS name)
+// Get the balance of an account (by address or ENS name, if supported by network)
 balance = await provider.getBalance("ethers.eth")
 // { BigNumber: "2337132817842795605" }
 
-// Often you will need to format the output for the user
-// which prefer to see values in ether (instead of wei)
+// Often you need to format the output to something more user-friendly,
+// such as in ether (instead of wei)
 ethers.utils.formatEther(balance)
 // '2.337132817842795605'
 
-// Or if a user enters a string in an input field, you may need
+// If a user enters a string in an input field, you may need
 // to convert it from ether (as a string) to wei (as a BigNumber)
 ethers.utils.parseEther("1.0")
 // { BigNumber: "1000000000000000000" }
@@ -98,13 +112,13 @@ Contracts
 ---------
 
 ```javascript
-// We can use an ENS name for the contract address
+// You can also use an ENS name for the contract address
 const daiAddress = "dai.tokens.ethers.eth";
 
 // The ERC-20 Contract ABI, which is a common contract interface
 // for tokens (this is the Human-Readable ABI format)
 const daiAbi = [
-  // Some simple details about the token
+  // Some details about the token
   "function name() view returns (string)",
   "function symbol() view returns (string)",
 
@@ -129,25 +143,25 @@ const daiContract = new ethers.Contract(daiAddress, daiAbi, provider);
 daiContract.name()
 // { Promise: 'Dai Stablecoin' }
 
-// Get the ERC-20 token synbol (for tickers and UIs)
+// Get the ERC-20 token symbol (for tickers and UIs)
 daiContract.symbol()
 // { Promise: 'DAI' }
 
 // Get the balance of an address
 balance = await daiContract.balanceOf("ricmoo.firefly.eth")
-// { BigNumber: "9709905125722568213383" }
+// { BigNumber: "198172622063578627973" }
 
 // Format the DAI for displaying to the user
 ethers.utils.formatUnits(balance, 18)
-// '9709.905125722568213383'
+// '198.172622063578627973'
 ```
 
 ### State Changing Methods
 
 ```
 // The DAI Contract is currently connected to the Provider,
-// which is read-only. We need to connect to a Signer, so
-// that we can pay to send state-changing transactions.
+// which is read-only. You need to connect to a Signer, so
+// that you can pay to send state-changing transactions.
 const daiWithSigner = contract.connect(signer);
 
 // Each DAI has 18 decimal places
@@ -194,7 +208,7 @@ daiContract.on(filter, (from, to, amount, event) => {
 myAddress = await signer.getAddress()
 // '0x8ba1f109551bD432803012645Ac136ddd64DBA72'
 
-// Filter for all token transfers to me
+// Filter for all token transfers from me
 filterFrom = daiContract.filters.Transfer(myAddress, null);
 // {
 //   address: 'dai.tokens.ethers.eth',
@@ -204,7 +218,7 @@ filterFrom = daiContract.filters.Transfer(myAddress, null);
 //   ]
 // }
 
-// Filter for all token transfers from me
+// Filter for all token transfers to me
 filterTo = daiContract.filters.Transfer(null, myAddress);
 // {
 //   address: 'dai.tokens.ethers.eth',
@@ -279,7 +293,7 @@ daiContract.queryFilter(filterFrom, 9843470, 9843480)
 // number of entries; but they provide some useful examples
 //
 
-// List all transfers I sent in the last 10,000 blocks
+// List all transfers sent in the last 10,000 blocks
 daiContract.queryFilter(filterFrom, -10000)
 
 // List all transfers ever sent to me
@@ -290,11 +304,11 @@ Signing Messages
 ----------------
 
 ```javascript
-// To sign a simple string, which can often be used for
-// logging into a service, such as CryptoKitties simply
+// To sign a simple string, which are used for
+// logging into a service, such as CryptoKitties,
 // pass the string in.
 signature = await signer.signMessage("Hello World");
-// '0x7b8d663c680b165bb7b0601a65d730f532fa6427b2e30f1d91ff1d929712b3a50b427a672b90c1dc48a4e5fbde292fbded51f670ab57d15d5794b6ff015649611c'
+// '0x800d1d157d472b0cb567ec0d9e2825203aaa7e84db5a9b19169c0c85575f6e0761e99bd670ed82f71a346020cdec8326644132cdeffd8e327d888f94f21825e01b'
 
 //
 // A common case is also signing a hash, which is 32
@@ -302,7 +316,7 @@ signature = await signer.signMessage("Hello World");
 // data it MUST be an Array (or TypedArray)
 //
 
-// This string is 66 chacacters long
+// This string is 66 characters long
 message = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"
 
 // This array representation is 32 bytes long
@@ -311,6 +325,6 @@ messageBytes = ethers.utils.arrayify(message);
 
 // To sign a hash, you most often want to sign the bytes
 signature = await signer.signMessage(messageBytes)
-// '0xc791b3d29aa1754f9e392784273f076ef39ca5d81f2729c92af61f89db724a604074acbd725d9d95e1d3c9630211c8eee8e34f6d948d537dd82c11be4bcf676e1c'
+// '0x3ec3dca35ae2712e7f9bb1e2819f9b40c818c567b1a01586d3b0d0a73bad1c303b7f39d4471ac0c9eb900438bc6b6a4bf5b2c120a5cb31edc2cfab11ede409381b'
 ```
 

@@ -136,7 +136,7 @@ Returns the number of decimal places used by this ERC-20 token. This can be
 used with [parseUnits](utils-parseUnits) when taking input from the user or
 [formatUnits](utils-formatunits] when displaying the token amounts in the UI.
 
-_property: erc20.getBalance(owner [, overrides ]) => Promise<[[BigNumber]]>
+_property: erc20.balanceOf(owner [, overrides ]) => Promise<[[BigNumber]]>
 Returns the balance of //owner// for this ERC-20 token.
 
 _property: erc20.symbol([ overrides ]) => Promise<string>
@@ -178,7 +178,7 @@ _subsection: Meta-Class Filters @NOTE<(added at Runtime)>
 Since the Contract is a Meta-Class, the methods available here depend
 on the ABI which was passed into the **Contract**.
 
-_property: erc20.filters.Transafer([ fromAddress [ , toAddress ] ]) => Filter
+_property: erc20.filters.Transfer([ fromAddress [ , toAddress ] ]) => Filter
 Returns a new Filter which can be used to [query](erc20-queryfilter) or
 to [subscribe/unsubscribe to events](erc20-events).
 

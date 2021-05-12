@@ -17,7 +17,7 @@ A complete Ethereum wallet implementation and utilities in JavaScript (and TypeS
 - **Tiny** (~104kb compressed; 322kb uncompressed)
 - **Modular** packages; include only what you need
 - **Complete** functionality for all your Ethereum desires
-- Extensive [documentation](https://docs.ethers.io/ethers.js/html/)
+- Extensive [documentation](https://docs.ethers.io/v5/)
 - Large collection of **test cases** which are maintained and added to
 - Fully **TypeScript** ready, with definition files and full TypeScript source
 - **MIT License** (including ALL dependencies); completely open source to do with as you please
@@ -44,7 +44,7 @@ Installing
 **browser (UMD)**
 
 ```
-<script src="https://cdn.ethers.io/lib/ethers-5.0.umd.min.js" type="text/javascript">
+<script src="https://cdn.ethers.io/lib/ethers-5.1.umd.min.js" type="text/javascript">
 </script>
 ```
 
@@ -52,7 +52,7 @@ Installing
 
 ```
 <script type="module">
-    import { ethers } from "https://cdn.ethers.io/lib/ethers-5.0.umd.min.js";
+    import { ethers } from "https://cdn.ethers.io/lib/ethers-5.1.esm.min.js";
 </script>
 ```
 
@@ -75,14 +75,14 @@ Ancillary Packages
 These are a number of packages not included in the umbrella `ethers` npm package, and
 additional packages are always being added. Often these packages are for specific
 use-cases, so rather than adding them to the umbrella package, they are added as
-ancillary packaged, which can be included by those who need them, while not bloating
+ancillary packages, which can be included by those who need them, while not bloating
 everyone else with packages they do not need.
 
 We will keep a list of useful packages here.
 
-- `@ethersproject/experimental` ([documentation](https://docs.ethers.io))
-- `@ethersproject/cli` ([documentation](https://docs.ethers.io))
-- `@ethersproject/hardware-wallets` ([documentation](https://docs.ethers.io))
+- `@ethersproject/experimental` ([documentation](https://docs.ethers.io/v5/api/experimental/))
+- `@ethersproject/cli` ([documentation](https://docs.ethers.io/v5/cli/))
+- `@ethersproject/hardware-wallets` ([documentation](https://docs.ethers.io/v5/api/other/hardware/))
 
 
 License

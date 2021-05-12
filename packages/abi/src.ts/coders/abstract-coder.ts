@@ -1,6 +1,6 @@
 "use strict";
 
-import { arrayify, BytesLike, concat, hexlify } from "@ethersproject/bytes";
+import { arrayify, BytesLike, concat, hexConcat, hexlify } from "@ethersproject/bytes";
 import { BigNumber, BigNumberish } from "@ethersproject/bignumber";
 import { defineReadOnly } from "@ethersproject/properties";
 
@@ -70,33 +70,45 @@ export abstract class Coder {
 
     abstract encode(writer: Writer, value: any): number;
     abstract decode(reader: Reader): any;
+
+    abstract defaultValue(): any;
 }
 
 export class Writer {
     readonly wordSize: number;
 
-    _data: Uint8Array;
+    _data: Array<Uint8Array>;
+    _dataLength: number;
     _padding: Uint8Array;
 
     constructor(wordSize?: number) {
         defineReadOnly(this, "wordSize", wordSize || 32);
-        this._data = arrayify([ ]);
+        this._data = [ ];
+        this._dataLength = 0;
         this._padding = new Uint8Array(wordSize);
     }
 
-    get data(): string { return hexlify(this._data); }
-    get length(): number { return this._data.length; }
+    get data(): string {
+        return hexConcat(this._data);
+    }
+    get length(): number { return this._dataLength; }
 
     _writeData(data: Uint8Array): number {
-        this._data = concat([ this._data, data ]);
+        this._data.push(data);
+        this._dataLength += data.length;
         return data.length;
+    }
+
+    appendWriter(writer: Writer): number {
+        return this._writeData(concat(writer._data));
     }
 
     // Arrayish items; padded on the right to wordSize
     writeBytes(value: BytesLike): number {
         let bytes = arrayify(value);
-        if (bytes.length % this.wordSize) {
-            bytes = concat([ bytes, this._padding.slice(bytes.length % this.wordSize) ])
+        const paddingOffset = bytes.length % this.wordSize;
+        if (paddingOffset) {
+            bytes = concat([ bytes, this._padding.slice(paddingOffset) ])
         }
         return this._writeData(bytes);
     }
@@ -121,26 +133,29 @@ export class Writer {
     }
 
     writeUpdatableValue(): (value: BigNumberish) => void {
-        let offset = this.length;
-        this.writeValue(0);
+        const offset = this._data.length;
+        this._data.push(this._padding);
+        this._dataLength += this.wordSize;
         return (value: BigNumberish) => {
-            this._data.set(this._getValue(value), offset);
+            this._data[offset] = this._getValue(value);
         };
     }
 }
 
 export class Reader {
     readonly wordSize: number;
+    readonly allowLoose: boolean;
 
     readonly _data: Uint8Array;
     readonly _coerceFunc: CoerceFunc;
 
     _offset: number;
 
-    constructor(data: BytesLike, wordSize?: number, coerceFunc?: CoerceFunc) {
+    constructor(data: BytesLike, wordSize?: number, coerceFunc?: CoerceFunc, allowLoose?: boolean) {
         defineReadOnly(this, "_data", arrayify(data));
         defineReadOnly(this, "wordSize", wordSize || 32);
         defineReadOnly(this, "_coerceFunc", coerceFunc);
+        defineReadOnly(this, "allowLoose", allowLoose);
 
         this._offset = 0;
     }
@@ -160,23 +175,27 @@ export class Reader {
         return Reader.coerce(name, value);
     }
 
-    _peekBytes(offset: number, length: number): Uint8Array {
+    _peekBytes(offset: number, length: number, loose?: boolean): Uint8Array {
         let alignedLength = Math.ceil(length / this.wordSize) * this.wordSize;
         if (this._offset + alignedLength > this._data.length) {
-            logger.throwError("data out-of-bounds", Logger.errors.BUFFER_OVERRUN, {
-                length: this._data.length,
-                offset: this._offset + alignedLength
-            });
+            if (this.allowLoose && loose && this._offset + length <= this._data.length) {
+                alignedLength = length;
+            } else {
+                logger.throwError("data out-of-bounds", Logger.errors.BUFFER_OVERRUN, {
+                    length: this._data.length,
+                    offset: this._offset + alignedLength
+                });
+            }
         }
         return this._data.slice(this._offset, this._offset + alignedLength)
     }
 
     subReader(offset: number): Reader {
-        return new Reader(this._data.slice(this._offset + offset), this.wordSize, this._coerceFunc);
+        return new Reader(this._data.slice(this._offset + offset), this.wordSize, this._coerceFunc, this.allowLoose);
     }
 
-    readBytes(length: number): Uint8Array {
-        let bytes = this._peekBytes(0, length);
+    readBytes(length: number, loose?: boolean): Uint8Array {
+        let bytes = this._peekBytes(0, length, !!loose);
         this._offset += bytes.length;
         // @TODO: Make sure the length..end bytes are all 0?
         return bytes.slice(0, length);

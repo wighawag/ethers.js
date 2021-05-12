@@ -484,7 +484,7 @@ describe('Test UTF-8 coder', function() {
             let str2 = ethers.utils.toUtf8String(bytes);
             let escaped = JSON.parse(ethers.utils._toEscapedUtf8String(bytes));
 
-            assert.ok(Buffer.from(str).equals(Buffer.from(bytes)), 'bytes not generated correctly - ' + bytes)
+//            assert.ok(Buffer.from(str).equals(Buffer.from(bytes)), 'bytes not generated correctly - ' + bytes)
             assert.equal(str2, str, 'conversion not reflexive - ' + bytes);
             assert.equal(escaped, str, 'conversion not reflexive - ' + bytes);
         }
@@ -504,7 +504,7 @@ describe('Test Bytes32String coder', function() {
 
 
 function getHex(value: string): string {
-    return "0x" + Buffer.from(value).toString("hex");
+    return ethers.utils.hexlify(ethers.utils.toUtf8Bytes(value));
 }
 
 describe("Test nameprep", function() {
@@ -619,8 +619,93 @@ describe("BigNumber", function() {
         });
     });
 
+    // Fails to create from BN (or any junk with a length) (See: #1172)
+    it("Fails on junk with a length property", function() {
+        const junk: any = { negative: 0, words: [ 1000 ], length: 1, red: null };
+        assert.throws(() => {
+            const value = ethers.BigNumber.from("100").add(junk);
+            console.log("ERROR", value);
+        }, (error: Error) => {
+            return true;
+        });
+    });
+
     // @TODO: Add more tests here
 
+});
+
+
+describe("FixedNumber", function() {
+    {
+        const Tests = [
+            { value: "0.0",    expected: "0.0"  },
+            { value: "-0.0",   expected: "0.0"  },
+
+            { value: "1.0",    expected: "1.0"  },
+            { value: "1.00",   expected: "1.0"  },
+            { value: "01.00",  expected: "1.0"  },
+            { value: 1,        expected: "1.0"  },
+
+            { value: "-1.0",   expected: "-1.0"  },
+            { value: "-1.00",  expected: "-1.0"  },
+            { value: "-01.00", expected: "-1.0"  },
+            { value: -1,       expected: "-1.0"  },
+        ];
+
+        Tests.forEach((test) => {
+            it (`Create from=${ test.value }`, function() {
+                const value = ethers.FixedNumber.from(test.value);
+                assert.equal(value.toString(), test.expected);
+            });
+        });
+    }
+
+    {
+        const Tests = [
+            { value: "1.0",    round: 1,   expected: "1.0"  },
+            { value: "1.4",    round: 1,   expected: "1.4"  },
+            { value: "1.4",    round: 2,   expected: "1.4"  },
+            { value: "1.4",    round: 0,   expected: "1.0"  },
+            { value: "1.5",    round: 0,   expected: "2.0"  },
+            { value: "1.6",    round: 0,   expected: "2.0"  },
+
+            { value: "-1.0",   round: 1,   expected: "-1.0" },
+            { value: "-1.4",   round: 1,   expected: "-1.4" },
+            { value: "-1.4",   round: 2,   expected: "-1.4" },
+            { value: "-1.4",   round: 0,   expected: "-1.0" },
+            { value: "-1.5",   round: 0,   expected: "-1.0" },
+            { value: "-1.6",   round: 0,   expected: "-2.0" },
+
+            { value: "1.51",   round: 1,   expected: "1.5"  },
+            { value: "1.55",   round: 1,   expected: "1.6"  },
+        ];
+
+        Tests.forEach((test) => {
+            it (`Rounding value=${ test.value }, decimals=${ test.round }`, function() {
+                const value = ethers.FixedNumber.from(test.value).round(test.round);
+                assert.equal(value.toString(), test.expected);
+            });
+        });
+    }
+
+    {
+        const Tests = [
+            { value: "1.0",   ceiling: "1.0",   floor: "1.0"  },
+            { value: "1.1",   ceiling: "2.0",   floor: "1.0"  },
+            { value: "1.9",   ceiling: "2.0",   floor: "1.0"  },
+            { value: "-1.0",  ceiling: "-1.0",  floor: "-1.0" },
+            { value: "-1.1",  ceiling: "-1.0",  floor: "-2.0" },
+            { value: "-1.9",  ceiling: "-1.0",  floor: "-2.0" },
+        ];
+
+        Tests.forEach((test) => {
+            it (`Clamping value=${ test.value }`, function() {
+                const value = ethers.FixedNumber.from(test.value);
+                assert.equal(value.floor().toString(), test.floor);
+                assert.equal(value.ceiling().toString(), test.ceiling);
+            });
+        });
+    }
 });
 
 describe("Logger", function() {
@@ -658,18 +743,17 @@ describe("Logger", function() {
     });
 });
 
-
-/*
 describe("Base58 Coder", function() {
     it("decodes", function() {
-        assert.equal(ethers.utils.Base58.decode("JxF12TrwUP45BMd"), "Hello World");
+        assert.equal(ethers.utils.toUtf8String(ethers.utils.base58.decode("JxF12TrwUP45BMd")), "Hello World");
     });
 
     it("encodes", function() {
-        assert.equal(ethers.utils.Base58.encode("Hello World"), "JxF12TrwUP45BMd");
+        assert.equal(ethers.utils.base58.encode(ethers.utils.toUtf8Bytes("Hello World")), "JxF12TrwUP45BMd");
     });
 });
 
+/*
 describe("Web Fetch", function() {
     it("fetches JSON", async function() {
         const url = "https:/\/api.etherscan.io/api?module=stats&action=ethprice&apikey=9D13ZE7XSBTJ94N9BNJ2MA33VMAY2YPIRB";
@@ -677,3 +761,154 @@ describe("Web Fetch", function() {
     });
 });
 */
+
+describe("EIP-712", function() {
+    const tests = loadTests<Array<TestCase.Eip712>>("eip712");
+
+    tests.forEach((test) => {
+        it(`encoding ${ test.name }`, function() {
+            const encoder = ethers.utils._TypedDataEncoder.from(test.types);
+            assert.equal(encoder.primaryType, test.primaryType, "instance.primaryType");
+            assert.equal(encoder.encode(test.data), test.encoded, "instance.encode()");
+
+            //console.log(test);
+            assert.equal(ethers.utils._TypedDataEncoder.getPrimaryType(test.types), test.primaryType, "getPrimaryType");
+            assert.equal(ethers.utils._TypedDataEncoder.hash(test.domain, test.types, test.data), test.digest, "digest");
+        });
+    });
+
+    tests.forEach((test) => {
+        if (!test.privateKey) { return; }
+        it(`signing ${ test.name }`, async function() {
+            const wallet = new ethers.Wallet(test.privateKey);
+            const signature = await wallet._signTypedData(test.domain, test.types, test.data);
+            assert.equal(signature, test.signature, "signature");
+        });
+    });
+});
+
+/*
+type EIP2930Test = {
+    hash: string,
+    data:
+};
+*/
+
+function _deepEquals(a: any, b: any, path: string): string {
+    if (Array.isArray(a)) {
+        if (!Array.isArray(b)) {
+            return `{ path }:!isArray(b)`;
+        }
+        if (a.length !== b.length) {
+            return `{ path }:a.length[${ a.length }]!=b.length[${ b.length }]`;
+        }
+        for (let i = 0; i < a.length; i++) {
+            const reason = _deepEquals(a[i], b[i], `${ path }:${ i }`);
+            if (reason != null) { return reason; }
+        }
+        return null;
+    }
+
+    if (a.eq) {
+        if (!b.eq) { return `${ path }:typeof(b)!=BigNumber`; }
+        return a.eq(b) ? null: `${ path }:!a.eq(b)`;
+    }
+
+    if (a != null && typeof(a) === "object") {
+        if (b != null && typeof(b) !== "object") { return `${ path }:typeof(b)!=object`; }
+        const keys = Object.keys(a), otherKeys = Object.keys(b);
+        keys.sort();
+        otherKeys.sort();
+        if (keys.length !== otherKeys.length) { return `${ path }:keys(a)[${ keys.join(",") }]!=keys(b)[${ otherKeys.join(",") }]`; }
+        for (const key in a) {
+            const reason = _deepEquals(a[key], b[key], `${ path }:${ key }`);
+            if (reason != null) { return reason; }
+        }
+        return null;
+    }
+
+    if (a !== b) { return `${ path }[${ a } != ${ b }]`; }
+
+    return null;
+}
+
+function deepEquals(a: any, b: any): string {
+    return _deepEquals(a, b, "");
+}
+
+describe("EIP-2930", function() {
+
+    const Tests = [
+        {
+            hash: "0x48bff7b0e603200118a672f7c622ab7d555a28f98938edb8318803eed7ea7395",
+            data: "0x01f87c030d8465cf89a0825b689432162f3581e88a5f62e8a61892b42c46e2c18f7b8080d7d6940000000000000000000000000000000000000000c080a09659cba42376dbea1433cd6afc9c8ffa38dbeff5408ffdca0ebde6207281a3eca027efbab3e6ed30b088ce0a50533364778e101c9e52acf318daec131da64e7758",
+            preimage: "0x01f839030d8465cf89a0825b689432162f3581e88a5f62e8a61892b42c46e2c18f7b8080d7d6940000000000000000000000000000000000000000c0",
+            tx: {
+                hash: "0x48bff7b0e603200118a672f7c622ab7d555a28f98938edb8318803eed7ea7395",
+                type: 1,
+                chainId: 3,
+                nonce: 13,
+                gasPrice: ethers.BigNumber.from("0x65cf89a0"),
+                gasLimit: ethers.BigNumber.from("0x5b68"),
+                to: "0x32162F3581E88a5f62e8A61892B42C46E2c18f7b",
+                value: ethers.BigNumber.from("0"),
+                data: "0x",
+                accessList: [
+                    {
+                        address: "0x0000000000000000000000000000000000000000",
+                        storageKeys: []
+                    }
+                ],
+                v: 0,
+                r: "0x9659cba42376dbea1433cd6afc9c8ffa38dbeff5408ffdca0ebde6207281a3ec",
+                s: "0x27efbab3e6ed30b088ce0a50533364778e101c9e52acf318daec131da64e7758",
+                from: "0x32162F3581E88a5f62e8A61892B42C46E2c18f7b",
+            }
+        },
+        {
+            hash: "0x1675a417e728fd3562d628d06955ef35b913573d9e417eb4e6a209998499c9d3",
+            data: "0x01f8e2030e8465cf89a08271ac9432162f3581e88a5f62e8a61892b42c46e2c18f7b8080f87cf87a940000000000000000000000000000000000000000f863a0deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefa00000000000111111111122222222223333333333444444444455555555556666a0deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef80a0b0646756f89817d70cdb40aa2ae8b5f43ef65d0926dcf71a7dca5280c93763dfa04d32dbd9a44a2c5639b8434b823938202f75b0a8459f3fcd9f37b2495b7a66a6",
+            preimage: "0x01f89f030e8465cf89a08271ac9432162f3581e88a5f62e8a61892b42c46e2c18f7b8080f87cf87a940000000000000000000000000000000000000000f863a0deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefa00000000000111111111122222222223333333333444444444455555555556666a0deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+            tx: {
+                hash: "0x1675a417e728fd3562d628d06955ef35b913573d9e417eb4e6a209998499c9d3",
+                type: 1,
+                chainId: 3,
+                nonce: 14,
+                gasPrice: ethers.BigNumber.from("0x65cf89a0"),
+                gasLimit: ethers.BigNumber.from("0x71ac"),
+                to: "0x32162F3581E88a5f62e8A61892B42C46E2c18f7b",
+                value: ethers.BigNumber.from("0"),
+                data: "0x",
+                accessList: [
+                    {
+                        address: "0x0000000000000000000000000000000000000000",
+                        storageKeys: [
+                            "0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+                            "0x0000000000111111111122222222223333333333444444444455555555556666",
+                            "0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"
+                        ]
+                    }
+                ],
+                v: 0,
+                r: "0xb0646756f89817d70cdb40aa2ae8b5f43ef65d0926dcf71a7dca5280c93763df",
+                s: "0x4d32dbd9a44a2c5639b8434b823938202f75b0a8459f3fcd9f37b2495b7a66a6",
+                from: "0x32162F3581E88a5f62e8A61892B42C46E2c18f7b",
+            }
+        },
+    ];
+
+    Tests.forEach((test) => {
+        it(`tx:${ test.hash }`, function() {
+            const tx = ethers.utils.parseTransaction(test.data);
+            assert.equal(tx.hash, test.hash);
+            const reason = deepEquals(tx, test.tx);
+            assert.ok(reason == null, reason);
+
+            const preimageData = ethers.utils.serializeTransaction(<any>(test.tx));
+            assert.equal(preimageData, test.preimage);
+
+            const data = ethers.utils.serializeTransaction(<any>(test.tx), test.tx);
+            assert.equal(data, test.data);
+        });
+    });
+});

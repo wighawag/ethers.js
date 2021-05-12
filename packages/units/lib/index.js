@@ -1,5 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.parseEther = exports.formatEther = exports.parseUnits = exports.formatUnits = exports.commify = void 0;
 var bignumber_1 = require("@ethersproject/bignumber");
 var logger_1 = require("@ethersproject/logger");
 var _version_1 = require("./_version");
@@ -67,6 +68,9 @@ function formatUnits(value, unitName) {
 }
 exports.formatUnits = formatUnits;
 function parseUnits(value, unitName) {
+    if (typeof (value) !== "string") {
+        logger.throwArgumentError("value must be a string", "value", value);
+    }
     if (typeof (unitName) === "string") {
         var index = names.indexOf(unitName);
         if (index !== -1) {

@@ -1,13 +1,22 @@
 {
   "author": "Richard Moore <me@ricmoo.com>",
   "dependencies": {
-    "@ensdomains/address-encoder": "^0.1.2",
-    "@ethersproject/web": "^5.0.0",
-    "ethers": "^5.0.0",
+    "@ethersproject/web": "^5.1.0",
+    "ethers": "^5.1.0",
     "scrypt-js": "3.0.1"
   },
   "description": "Experimental libraries for ethers. These should not be considered stable.",
   "ethereum": "donations.ethers.eth",
+  "funding": [
+    {
+      "type": "individual",
+      "url": "https://gitcoin.co/grants/13/ethersjs-complete-simple-and-tiny-2"
+    },
+    {
+      "type": "individual",
+      "url": "https://www.buymeacoffee.com/ricmoo"
+    }
+  ],
   "keywords": [
     "Ethereum",
     "ethers"
@@ -20,13 +29,15 @@
     "access": "public"
   },
   "repository": {
+    "directory": "packages/experimental",
     "type": "git",
     "url": "git://github.com/ethers-io/ethers.js.git"
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "tarballHash": "0x2cce23aa74c1f32f69d7f92dfe1585e82a97bbba2b8fc64261c5b5089e8ed869",
+  "sideEffects": false,
+  "tarballHash": "0xf89a309b4070a759d8dc2a64179ecac3ce9b66e9e54a693d8fc4b343ca02fcc3",
   "types": "./lib/index.d.ts",
-  "version": "5.0.1"
+  "version": "5.1.2"
 }

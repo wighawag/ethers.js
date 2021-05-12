@@ -10,7 +10,8 @@ Types
 BlockTag
 --------
 
-### EventType
+Networkish
+----------
 
 Network
 -------
@@ -57,21 +58,21 @@ The timestamp of this block.
 
 The nonce used as part of the proof-of-work to mine this block.
 
-This property is generally of little interest developers.
+This property is generally of little interest to developers.
 
 
 #### *block* . **difficulty** => *number*
 
 The difficulty target required to be met by the miner of the block.
 
-This property is generally of little interest developers.
+This property is generally of little interest to developers.
 
 
 #### *block* . **gasLimit** => *[BigNumber](/v5/api/utils/bignumber/)*
 
 The maximum amount of gas that this block was permitted to use. This is a value that can be voted up or voted down by miners and is used to automatically adjust the bandwidth requirements of the network.
 
-This property is generally of little interest developers.
+This property is generally of little interest to developers.
 
 
 #### *block* . **gasUsed** => *[BigNumber](/v5/api/utils/bignumber/)*
@@ -88,7 +89,7 @@ The coinbase address of this block, which indicates the address the miner that m
 
 This is extra data a miner may choose to include when mining a block.
 
-This property is generally of little interest developers.
+This property is generally of little interest to developers.
 
 
 ### Block (with transaction hashes)
@@ -115,9 +116,13 @@ Events and Logs
 The address to filter by, or `null` to match any address.
 
 
-#### *filter* . **topics** => *Array< string< [DataHexString](/v5/api/utils/bytes/#DataHexString)< 32 > > | Array< string< [DataHexString](/v5/api/utils/bytes/#DataHexString)< 32 > > > >*
+#### *filter* . **topics** => *Array< string< [Data](/v5/api/utils/bytes/#DataHexString)< 32 > > | Array< string< [Data](/v5/api/utils/bytes/#DataHexString)< 32 > > > >*
 
-The topics to filter by, or `null` to match any topics. Each entry represents an **AND** condition that must match, or may be `null` to match anything. If a given entry is an Array, then that entry is treated as an **OR** for any value in the entry.
+The topics to filter by or `null` to match any topics.
+
+Each entry represents an **AND** condition that must match, or may be `null` to match anything. If a given entry is an Array, then that entry is treated as an **OR** for any value in the entry.
+
+See [Filters](/v5/concepts/events/#events--filters) for more details and examples on specifying complex filters.
 
 
 ### Filter
@@ -265,16 +270,24 @@ The number of blocks that have been mined (including the initial block) since th
 The serialized transaction.
 
 
-#### *transaction* . **wait**( [ confirmations = 1 ] ) => *Promise< [TransactionReceipt](/v5/api/providers/types/#providers-TransactionReceipt) >*
+#### *transaction* . **wait**( [ confirms = 1 ] ) => *Promise< [TransactionReceipt](/v5/api/providers/types/#providers-TransactionReceipt) >*
 
-Wait for *confirmations*. If 0, and the transaction has not been mined, `null` is returned.
+Resolves to the [TransactionReceipt](/v5/api/providers/types/#providers-TransactionReceipt) once the transaction has been included in the chain for *confirms* blocks. If *confirms* is 0, and the transaction has not been mined, `null` is returned.
+
+If the transaction execution failed (i.e. the receipt status is `0`), a [CALL_EXCEPTION](/v5/api/utils/logger/#errors--call-exception) Error will be rejected with the following properties:
+
+- `error.transaction` - the original transaction 
+- `error.transactionHash` - the hash of the transaction 
+- `error.receipt` - the actual receipt, with the status of `0` 
+
+
 
 
 ### TransactionReceipt
 
 #### *receipt* . **to** => *string< [Address](/v5/api/utils/address/#address) >*
 
-The address this transaction is to. This is `null` if the the transaction was an **init transaction**, used to deploy a contract.
+The address this transaction is to. This is `null` if the transaction was an **init transaction**, used to deploy a contract.
 
 
 #### *receipt* . **from** => *string< [Address](/v5/api/utils/address/#address) >*
@@ -310,7 +323,7 @@ The amount of gas actually used by this transaction.
 
 #### *receipt* . **logsBloom** => *string< [DataHexString](/v5/api/utils/bytes/#DataHexString) >*
 
-A [bloom-filter](https://en.wikipedia.org/wiki/Bloom_filter), which incldues all the addresses and topics included in any log in this transaction.
+A [bloom-filter](https://en.wikipedia.org/wiki/Bloom_filter), which includes all the addresses and topics included in any log in this transaction.
 
 
 #### *receipt* . **blockHash** => *string< [DataHexString](/v5/api/utils/bytes/#DataHexString)< 32 > >*
@@ -340,7 +353,7 @@ The number of blocks that have been mined since this transaction, including the 
 
 #### *receipt* . **cumulativeGasUsed** => *[BigNumber](/v5/api/utils/bignumber/)*
 
-For the block this transaction was included in, this is the sum of the gas used used by each transaction in the ordered list of transactions up to (and including) this transaction.
+For the block this transaction was included in, this is the sum of the gas used by each transaction in the ordered list of transactions up to (and including) this transaction.
 
 This is generally of little interest to developers.
 

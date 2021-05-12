@@ -1,10 +1,20 @@
 {
   "author": "Richard Moore <me@ricmoo.com>",
   "dependencies": {
-    "@ethersproject/logger": "^5.0.0"
+    "@ethersproject/logger": "^5.1.0"
   },
   "description": "Network definitions for ethers.",
   "ethereum": "donations.ethers.eth",
+  "funding": [
+    {
+      "type": "individual",
+      "url": "https://gitcoin.co/grants/13/ethersjs-complete-simple-and-tiny-2"
+    },
+    {
+      "type": "individual",
+      "url": "https://www.buymeacoffee.com/ricmoo"
+    }
+  ],
   "keywords": [
     "Ethereum",
     "ethers"
@@ -17,13 +27,15 @@
     "access": "public"
   },
   "repository": {
+    "directory": "packages/networks",
     "type": "git",
     "url": "git://github.com/ethers-io/ethers.js.git"
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "tarballHash": "0xf92fa76efc61d70c133a7da0853c71d23739a000ca9f588e5de524c7f000f991",
+  "sideEffects": false,
+  "tarballHash": "0x6654debcb2c98889c43c4c5d095cf59c13f5a60bf8cd3e866647a87b02411b4e",
   "types": "./lib/index.d.ts",
-  "version": "5.0.2"
+  "version": "5.1.0"
 }

@@ -3,10 +3,12 @@ var __extends = (this && this.__extends) || (function () {
     var extendStatics = function (d, b) {
         extendStatics = Object.setPrototypeOf ||
             ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
-            function (d, b) { for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p]; };
+            function (d, b) { for (var p in b) if (Object.prototype.hasOwnProperty.call(b, p)) d[p] = b[p]; };
         return extendStatics(d, b);
     };
     return function (d, b) {
+        if (typeof b !== "function" && b !== null)
+            throw new TypeError("Class extends value " + String(b) + " is not a constructor or null");
         extendStatics(d, b);
         function __() { this.constructor = d; }
         d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
@@ -52,6 +54,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.assemble = exports.parse = exports.SemanticErrorSeverity = exports.formatBytecode = exports.disassemble = exports.ScopeNode = exports.ExecutionNode = exports.EvaluationNode = exports.DataNode = exports.PaddingNode = exports.LabelNode = exports.LabelledNode = exports.OpcodeNode = exports.LinkNode = exports.PopNode = exports.LiteralNode = exports.ValueNode = exports.Node = void 0;
 // @TODO:
 // - warn return/revert non-empty, comment ; !assert(+1 @extra)
 // - In JS add config (positionIndependent)
@@ -306,7 +309,7 @@ var PopNode = /** @class */ (function (_super) {
             }
             return "$" + String(this.index);
         },
-        enumerable: true,
+        enumerable: false,
         configurable: true
     });
     PopNode.from = function (options) {
@@ -711,7 +714,8 @@ function disassemble(bytecode) {
         }
         var op = {
             opcode: opcode,
-            offset: i
+            offset: i,
+            length: 1
         };
         offsets[i] = op;
         ops.push(op);
@@ -721,6 +725,7 @@ function disassemble(bytecode) {
             var data = ethers_1.ethers.utils.hexlify(bytes.slice(i, i + push));
             if (ethers_1.ethers.utils.hexDataLength(data) === push) {
                 op.pushValue = data;
+                op.length += push;
                 i += push;
             }
             else {
@@ -729,8 +734,30 @@ function disassemble(bytecode) {
         }
     }
     ops.getOperation = function (offset) {
+        if (offset >= bytes.length) {
+            return {
+                opcode: opcodes_1.Opcode.from("STOP"),
+                offset: offset,
+                length: 1
+            };
+        }
         return (offsets[offset] || null);
     };
+    ops.getByte = function (offset) {
+        if (offset >= bytes.length) {
+            return 0x00;
+        }
+        return bytes[offset];
+    };
+    ops.getBytes = function (offset, length) {
+        var result = new Uint8Array(length);
+        result.fill(0);
+        if (offset < bytes.length) {
+            result.set(bytes.slice(offset));
+        }
+        return ethers_1.ethers.utils.arrayify(result);
+    };
+    ops.byteLength = bytes.length;
     return ops;
 }
 exports.disassemble = disassemble;
@@ -1046,7 +1073,7 @@ var CodeGenerationAssembler = /** @class */ (function (_super) {
         get: function () {
             return this._changed;
         },
-        enumerable: true,
+        enumerable: false,
         configurable: true
     });
     // Reset the assmebler for another run with updated values

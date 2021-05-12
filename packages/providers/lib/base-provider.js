@@ -3,10 +3,12 @@ var __extends = (this && this.__extends) || (function () {
     var extendStatics = function (d, b) {
         extendStatics = Object.setPrototypeOf ||
             ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
-            function (d, b) { for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p]; };
+            function (d, b) { for (var p in b) if (Object.prototype.hasOwnProperty.call(b, p)) d[p] = b[p]; };
         return extendStatics(d, b);
     };
     return function (d, b) {
+        if (typeof b !== "function" && b !== null)
+            throw new TypeError("Class extends value " + String(b) + " is not a constructor or null");
         extendStatics(d, b);
         function __() { this.constructor = d; }
         d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
@@ -48,15 +50,23 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
         if (op[0] & 5) throw op[1]; return { value: op[0] ? op[1] : void 0, done: true };
     }
 };
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.BaseProvider = exports.Resolver = exports.Event = void 0;
 var abstract_provider_1 = require("@ethersproject/abstract-provider");
+var basex_1 = require("@ethersproject/basex");
 var bignumber_1 = require("@ethersproject/bignumber");
 var bytes_1 = require("@ethersproject/bytes");
+var constants_1 = require("@ethersproject/constants");
 var hash_1 = require("@ethersproject/hash");
 var networks_1 = require("@ethersproject/networks");
 var properties_1 = require("@ethersproject/properties");
+var sha2_1 = require("@ethersproject/sha2");
 var strings_1 = require("@ethersproject/strings");
 var web_1 = require("@ethersproject/web");
+var bech32_1 = __importDefault(require("bech32"));
 var logger_1 = require("@ethersproject/logger");
 var _version_1 = require("./_version");
 var logger = new logger_1.Logger(_version_1.version);
@@ -172,14 +182,14 @@ var Event = /** @class */ (function () {
             }
             return this.tag;
         },
-        enumerable: true,
+        enumerable: false,
         configurable: true
     });
     Object.defineProperty(Event.prototype, "type", {
         get: function () {
             return this.tag.split(":")[0];
         },
-        enumerable: true,
+        enumerable: false,
         configurable: true
     });
     Object.defineProperty(Event.prototype, "hash", {
@@ -190,7 +200,7 @@ var Event = /** @class */ (function () {
             }
             return comps[1];
         },
-        enumerable: true,
+        enumerable: false,
         configurable: true
     });
     Object.defineProperty(Event.prototype, "filter", {
@@ -210,7 +220,7 @@ var Event = /** @class */ (function () {
             }
             return filter;
         },
-        enumerable: true,
+        enumerable: false,
         configurable: true
     });
     Event.prototype.pollable = function () {
@@ -219,6 +229,207 @@ var Event = /** @class */ (function () {
     return Event;
 }());
 exports.Event = Event;
+;
+// https://github.com/satoshilabs/slips/blob/master/slip-0044.md
+var coinInfos = {
+    "0": { symbol: "btc", p2pkh: 0x00, p2sh: 0x05, prefix: "bc" },
+    "2": { symbol: "ltc", p2pkh: 0x30, p2sh: 0x32, prefix: "ltc" },
+    "3": { symbol: "doge", p2pkh: 0x1e, p2sh: 0x16 },
+    "60": { symbol: "eth", ilk: "eth" },
+    "61": { symbol: "etc", ilk: "eth" },
+    "700": { symbol: "xdai", ilk: "eth" },
+};
+function bytes32ify(value) {
+    return bytes_1.hexZeroPad(bignumber_1.BigNumber.from(value).toHexString(), 32);
+}
+// Compute the Base58Check encoded data (checksum is first 4 bytes of sha256d)
+function base58Encode(data) {
+    return basex_1.Base58.encode(bytes_1.concat([data, bytes_1.hexDataSlice(sha2_1.sha256(sha2_1.sha256(data)), 0, 4)]));
+}
+var Resolver = /** @class */ (function () {
+    function Resolver(provider, address, name) {
+        properties_1.defineReadOnly(this, "provider", provider);
+        properties_1.defineReadOnly(this, "name", name);
+        properties_1.defineReadOnly(this, "address", provider.formatter.address(address));
+    }
+    Resolver.prototype._fetchBytes = function (selector, parameters) {
+        return __awaiter(this, void 0, void 0, function () {
+            var transaction, result, offset, length;
+            return __generator(this, function (_a) {
+                switch (_a.label) {
+                    case 0:
+                        transaction = {
+                            to: this.address,
+                            data: bytes_1.hexConcat([selector, hash_1.namehash(this.name), (parameters || "0x")])
+                        };
+                        return [4 /*yield*/, this.provider.call(transaction)];
+                    case 1:
+                        result = _a.sent();
+                        if (result === "0x") {
+                            return [2 /*return*/, null];
+                        }
+                        offset = bignumber_1.BigNumber.from(bytes_1.hexDataSlice(result, 0, 32)).toNumber();
+                        length = bignumber_1.BigNumber.from(bytes_1.hexDataSlice(result, offset, offset + 32)).toNumber();
+                        return [2 /*return*/, bytes_1.hexDataSlice(result, offset + 32, offset + 32 + length)];
+                }
+            });
+        });
+    };
+    Resolver.prototype._getAddress = function (coinType, hexBytes) {
+        var coinInfo = coinInfos[String(coinType)];
+        if (coinInfo == null) {
+            logger.throwError("unsupported coin type: " + coinType, logger_1.Logger.errors.UNSUPPORTED_OPERATION, {
+                operation: "getAddress(" + coinType + ")"
+            });
+        }
+        if (coinInfo.ilk === "eth") {
+            return this.provider.formatter.address(hexBytes);
+        }
+        var bytes = bytes_1.arrayify(hexBytes);
+        // P2PKH: OP_DUP OP_HASH160 <pubKeyHash> OP_EQUALVERIFY OP_CHECKSIG
+        if (coinInfo.p2pkh != null) {
+            var p2pkh = hexBytes.match(/^0x76a9([0-9a-f][0-9a-f])([0-9a-f]*)88ac$/);
+            if (p2pkh) {
+                var length_1 = parseInt(p2pkh[1], 16);
+                if (p2pkh[2].length === length_1 * 2 && length_1 >= 1 && length_1 <= 75) {
+                    return base58Encode(bytes_1.concat([[coinInfo.p2pkh], ("0x" + p2pkh[2])]));
+                }
+            }
+        }
+        // P2SH: OP_HASH160 <scriptHash> OP_EQUAL
+        if (coinInfo.p2sh != null) {
+            var p2sh = hexBytes.match(/^0xa9([0-9a-f][0-9a-f])([0-9a-f]*)87$/);
+            if (p2sh) {
+                var length_2 = parseInt(p2sh[1], 16);
+                if (p2sh[2].length === length_2 * 2 && length_2 >= 1 && length_2 <= 75) {
+                    return base58Encode(bytes_1.concat([[coinInfo.p2sh], ("0x" + p2sh[2])]));
+                }
+            }
+        }
+        // Bech32
+        if (coinInfo.prefix != null) {
+            var length_3 = bytes[1];
+            // https://github.com/bitcoin/bips/blob/master/bip-0141.mediawiki#witness-program
+            var version_1 = bytes[0];
+            if (version_1 === 0x00) {
+                if (length_3 !== 20 && length_3 !== 32) {
+                    version_1 = -1;
+                }
+            }
+            else {
+                version_1 = -1;
+            }
+            if (version_1 >= 0 && bytes.length === 2 + length_3 && length_3 >= 1 && length_3 <= 75) {
+                var words = bech32_1.default.toWords(bytes.slice(2));
+                words.unshift(version_1);
+                return bech32_1.default.encode(coinInfo.prefix, words);
+            }
+        }
+        return null;
+    };
+    Resolver.prototype.getAddress = function (coinType) {
+        return __awaiter(this, void 0, void 0, function () {
+            var transaction, hexBytes_1, hexBytes, address;
+            return __generator(this, function (_a) {
+                switch (_a.label) {
+                    case 0:
+                        if (coinType == null) {
+                            coinType = 60;
+                        }
+                        if (!(coinType === 60)) return [3 /*break*/, 2];
+                        transaction = {
+                            to: this.address,
+                            data: ("0x3b3b57de" + hash_1.namehash(this.name).substring(2))
+                        };
+                        return [4 /*yield*/, this.provider.call(transaction)];
+                    case 1:
+                        hexBytes_1 = _a.sent();
+                        // No address
+                        if (hexBytes_1 === "0x" || hexBytes_1 === constants_1.HashZero) {
+                            return [2 /*return*/, null];
+                        }
+                        return [2 /*return*/, this.provider.formatter.callAddress(hexBytes_1)];
+                    case 2: return [4 /*yield*/, this._fetchBytes("0xf1cb7e06", bytes32ify(coinType))];
+                    case 3:
+                        hexBytes = _a.sent();
+                        // No address
+                        if (hexBytes == null || hexBytes === "0x") {
+                            return [2 /*return*/, null];
+                        }
+                        address = this._getAddress(coinType, hexBytes);
+                        if (address == null) {
+                            logger.throwError("invalid or unsupported coin data", logger_1.Logger.errors.UNSUPPORTED_OPERATION, {
+                                operation: "getAddress(" + coinType + ")",
+                                coinType: coinType,
+                                data: hexBytes
+                            });
+                        }
+                        return [2 /*return*/, address];
+                }
+            });
+        });
+    };
+    Resolver.prototype.getContentHash = function () {
+        return __awaiter(this, void 0, void 0, function () {
+            var hexBytes, ipfs, length_4, swarm;
+            return __generator(this, function (_a) {
+                switch (_a.label) {
+                    case 0: return [4 /*yield*/, this._fetchBytes("0xbc1c58d1")];
+                    case 1:
+                        hexBytes = _a.sent();
+                        // No contenthash
+                        if (hexBytes == null || hexBytes === "0x") {
+                            return [2 /*return*/, null];
+                        }
+                        ipfs = hexBytes.match(/^0xe3010170(([0-9a-f][0-9a-f])([0-9a-f][0-9a-f])([0-9a-f]*))$/);
+                        if (ipfs) {
+                            length_4 = parseInt(ipfs[3], 16);
+                            if (ipfs[4].length === length_4 * 2) {
+                                return [2 /*return*/, "ipfs:/\/" + basex_1.Base58.encode("0x" + ipfs[1])];
+                            }
+                        }
+                        swarm = hexBytes.match(/^0xe40101fa011b20([0-9a-f]*)$/);
+                        if (swarm) {
+                            if (swarm[1].length === (32 * 2)) {
+                                return [2 /*return*/, "bzz:/\/" + swarm[1]];
+                            }
+                        }
+                        return [2 /*return*/, logger.throwError("invalid or unsupported content hash data", logger_1.Logger.errors.UNSUPPORTED_OPERATION, {
+                                operation: "getContentHash()",
+                                data: hexBytes
+                            })];
+                }
+            });
+        });
+    };
+    Resolver.prototype.getText = function (key) {
+        return __awaiter(this, void 0, void 0, function () {
+            var keyBytes, hexBytes;
+            return __generator(this, function (_a) {
+                switch (_a.label) {
+                    case 0:
+                        keyBytes = strings_1.toUtf8Bytes(key);
+                        // The nodehash consumes the first slot, so the string pointer targets
+                        // offset 64, with the length at offset 64 and data starting at offset 96
+                        keyBytes = bytes_1.concat([bytes32ify(64), bytes32ify(keyBytes.length), keyBytes]);
+                        // Pad to word-size (32 bytes)
+                        if ((keyBytes.length % 32) !== 0) {
+                            keyBytes = bytes_1.concat([keyBytes, bytes_1.hexZeroPad("0x", 32 - (key.length % 32))]);
+                        }
+                        return [4 /*yield*/, this._fetchBytes("0x59d1d43c", bytes_1.hexlify(keyBytes))];
+                    case 1:
+                        hexBytes = _a.sent();
+                        if (hexBytes == null || hexBytes === "0x") {
+                            return [2 /*return*/, null];
+                        }
+                        return [2 /*return*/, strings_1.toUtf8String(hexBytes)];
+                }
+            });
+        });
+    };
+    return Resolver;
+}());
+exports.Resolver = Resolver;
 var defaultFormatter = null;
 var nextPollId = 1;
 var BaseProvider = /** @class */ (function (_super) {
@@ -336,7 +547,7 @@ var BaseProvider = /** @class */ (function (_super) {
                 });
             });
         },
-        enumerable: true,
+        enumerable: false,
         configurable: true
     });
     // @TODO: Remove this and just create a singleton formatter
@@ -354,23 +565,41 @@ var BaseProvider = /** @class */ (function (_super) {
     // than maxAge old or has been requested since the last request
     BaseProvider.prototype._getInternalBlockNumber = function (maxAge) {
         return __awaiter(this, void 0, void 0, function () {
-            var internalBlockNumber, result, reqTime, checkInternalBlockNumber;
+            var internalBlockNumber, result, error_2, reqTime, checkInternalBlockNumber;
             var _this = this;
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0: return [4 /*yield*/, this._ready()];
                     case 1:
                         _a.sent();
-                        internalBlockNumber = this._internalBlockNumber;
-                        if (!(maxAge > 0 && this._internalBlockNumber)) return [3 /*break*/, 3];
-                        return [4 /*yield*/, internalBlockNumber];
+                        if (!(maxAge > 0)) return [3 /*break*/, 7];
+                        _a.label = 2;
                     case 2:
+                        if (!this._internalBlockNumber) return [3 /*break*/, 7];
+                        internalBlockNumber = this._internalBlockNumber;
+                        _a.label = 3;
+                    case 3:
+                        _a.trys.push([3, 5, , 6]);
+                        return [4 /*yield*/, internalBlockNumber];
+                    case 4:
                         result = _a.sent();
                         if ((getTime() - result.respTime) <= maxAge) {
                             return [2 /*return*/, result.blockNumber];
                         }
-                        _a.label = 3;
-                    case 3:
+                        // Too old; fetch a new value
+                        return [3 /*break*/, 7];
+                    case 5:
+                        error_2 = _a.sent();
+                        // The fetch rejected; if we are the first to get the
+                        // rejection, drop through so we replace it with a new
+                        // fetch; all others blocked will then get that fetch
+                        // which won't match the one they "remembered" and loop
+                        if (this._internalBlockNumber === internalBlockNumber) {
+                            return [3 /*break*/, 7];
+                        }
+                        return [3 /*break*/, 6];
+                    case 6: return [3 /*break*/, 2];
+                    case 7:
                         reqTime = getTime();
                         checkInternalBlockNumber = properties_1.resolveProperties({
                             blockNumber: this.perform("getBlockNumber", {}),
@@ -394,24 +623,41 @@ var BaseProvider = /** @class */ (function (_super) {
                             return { blockNumber: blockNumber, reqTime: reqTime, respTime: respTime };
                         });
                         this._internalBlockNumber = checkInternalBlockNumber;
+                        // Swallow unhandled exceptions; if needed they are handled else where
+                        checkInternalBlockNumber.catch(function (error) {
+                            // Don't null the dead (rejected) fetch, if it has already been updated
+                            if (_this._internalBlockNumber === checkInternalBlockNumber) {
+                                _this._internalBlockNumber = null;
+                            }
+                        });
                         return [4 /*yield*/, checkInternalBlockNumber];
-                    case 4: return [2 /*return*/, (_a.sent()).blockNumber];
+                    case 8: return [2 /*return*/, (_a.sent()).blockNumber];
                 }
             });
         });
     };
     BaseProvider.prototype.poll = function () {
         return __awaiter(this, void 0, void 0, function () {
-            var pollId, runners, blockNumber, i;
+            var pollId, runners, blockNumber, error_3, i;
             var _this = this;
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
                         pollId = nextPollId++;
                         runners = [];
-                        return [4 /*yield*/, this._getInternalBlockNumber(100 + this.pollingInterval / 2)];
+                        blockNumber = null;
+                        _a.label = 1;
                     case 1:
+                        _a.trys.push([1, 3, , 4]);
+                        return [4 /*yield*/, this._getInternalBlockNumber(100 + this.pollingInterval / 2)];
+                    case 2:
                         blockNumber = _a.sent();
+                        return [3 /*break*/, 4];
+                    case 3:
+                        error_3 = _a.sent();
+                        this.emit("error", error_3);
+                        return [2 /*return*/];
+                    case 4:
                         this._setFastBlockNumber(blockNumber);
                         // Emit a poll event after we have the latest (fast) block number
                         this.emit("poll", pollId, blockNumber);
@@ -505,8 +751,8 @@ var BaseProvider = /** @class */ (function (_super) {
                         // Once all events for this loop have been processed, emit "didPoll"
                         Promise.all(runners).then(function () {
                             _this.emit("didPoll", pollId);
-                        });
-                        return [2 /*return*/, null];
+                        }).catch(function (error) { _this.emit("error", error); });
+                        return [2 /*return*/];
                 }
             });
         });
@@ -522,7 +768,7 @@ var BaseProvider = /** @class */ (function (_super) {
         get: function () {
             return this._network;
         },
-        enumerable: true,
+        enumerable: false,
         configurable: true
     });
     // This method should query the network if the underlying network
@@ -584,10 +830,10 @@ var BaseProvider = /** @class */ (function (_super) {
             var _this = this;
             this._getInternalBlockNumber(100 + this.pollingInterval / 2).then(function (blockNumber) {
                 _this._setFastBlockNumber(blockNumber);
-            });
+            }, function (error) { });
             return (this._fastBlockNumber != null) ? this._fastBlockNumber : -1;
         },
-        enumerable: true,
+        enumerable: false,
         configurable: true
     });
     Object.defineProperty(BaseProvider.prototype, "polling", {
@@ -597,7 +843,7 @@ var BaseProvider = /** @class */ (function (_super) {
         set: function (value) {
             var _this = this;
             if (value && !this._poller) {
-                this._poller = setInterval(this.poll.bind(this), this.pollingInterval);
+                this._poller = setInterval(function () { _this.poll(); }, this.pollingInterval);
                 if (!this._bootstrapPoll) {
                     this._bootstrapPoll = setTimeout(function () {
                         _this.poll();
@@ -620,7 +866,7 @@ var BaseProvider = /** @class */ (function (_super) {
                 this._poller = null;
             }
         },
-        enumerable: true,
+        enumerable: false,
         configurable: true
     });
     Object.defineProperty(BaseProvider.prototype, "pollingInterval", {
@@ -638,7 +884,7 @@ var BaseProvider = /** @class */ (function (_super) {
                 this._poller = setInterval(function () { _this.poll(); }, this._pollingInterval);
             }
         },
-        enumerable: true,
+        enumerable: false,
         configurable: true
     });
     BaseProvider.prototype._getFastBlockNumber = function () {
@@ -733,100 +979,150 @@ var BaseProvider = /** @class */ (function (_super) {
     };
     BaseProvider.prototype.getGasPrice = function () {
         return __awaiter(this, void 0, void 0, function () {
-            var _a, _b;
-            return __generator(this, function (_c) {
-                switch (_c.label) {
+            var result;
+            return __generator(this, function (_a) {
+                switch (_a.label) {
                     case 0: return [4 /*yield*/, this.getNetwork()];
                     case 1:
-                        _c.sent();
-                        _b = (_a = bignumber_1.BigNumber).from;
+                        _a.sent();
                         return [4 /*yield*/, this.perform("getGasPrice", {})];
-                    case 2: return [2 /*return*/, _b.apply(_a, [_c.sent()])];
+                    case 2:
+                        result = _a.sent();
+                        try {
+                            return [2 /*return*/, bignumber_1.BigNumber.from(result)];
+                        }
+                        catch (error) {
+                            return [2 /*return*/, logger.throwError("bad result from backend", logger_1.Logger.errors.SERVER_ERROR, {
+                                    method: "getGasPrice",
+                                    result: result, error: error
+                                })];
+                        }
+                        return [2 /*return*/];
                 }
             });
         });
     };
     BaseProvider.prototype.getBalance = function (addressOrName, blockTag) {
         return __awaiter(this, void 0, void 0, function () {
-            var params, _a, _b;
-            return __generator(this, function (_c) {
-                switch (_c.label) {
+            var params, result;
+            return __generator(this, function (_a) {
+                switch (_a.label) {
                     case 0: return [4 /*yield*/, this.getNetwork()];
                     case 1:
-                        _c.sent();
+                        _a.sent();
                         return [4 /*yield*/, properties_1.resolveProperties({
                                 address: this._getAddress(addressOrName),
                                 blockTag: this._getBlockTag(blockTag)
                             })];
                     case 2:
-                        params = _c.sent();
-                        _b = (_a = bignumber_1.BigNumber).from;
+                        params = _a.sent();
                         return [4 /*yield*/, this.perform("getBalance", params)];
-                    case 3: return [2 /*return*/, _b.apply(_a, [_c.sent()])];
+                    case 3:
+                        result = _a.sent();
+                        try {
+                            return [2 /*return*/, bignumber_1.BigNumber.from(result)];
+                        }
+                        catch (error) {
+                            return [2 /*return*/, logger.throwError("bad result from backend", logger_1.Logger.errors.SERVER_ERROR, {
+                                    method: "getBalance",
+                                    params: params, result: result, error: error
+                                })];
+                        }
+                        return [2 /*return*/];
                 }
             });
         });
     };
     BaseProvider.prototype.getTransactionCount = function (addressOrName, blockTag) {
         return __awaiter(this, void 0, void 0, function () {
-            var params, _a, _b;
-            return __generator(this, function (_c) {
-                switch (_c.label) {
+            var params, result;
+            return __generator(this, function (_a) {
+                switch (_a.label) {
                     case 0: return [4 /*yield*/, this.getNetwork()];
                     case 1:
-                        _c.sent();
+                        _a.sent();
                         return [4 /*yield*/, properties_1.resolveProperties({
                                 address: this._getAddress(addressOrName),
                                 blockTag: this._getBlockTag(blockTag)
                             })];
                     case 2:
-                        params = _c.sent();
-                        _b = (_a = bignumber_1.BigNumber).from;
+                        params = _a.sent();
                         return [4 /*yield*/, this.perform("getTransactionCount", params)];
-                    case 3: return [2 /*return*/, _b.apply(_a, [_c.sent()]).toNumber()];
+                    case 3:
+                        result = _a.sent();
+                        try {
+                            return [2 /*return*/, bignumber_1.BigNumber.from(result).toNumber()];
+                        }
+                        catch (error) {
+                            return [2 /*return*/, logger.throwError("bad result from backend", logger_1.Logger.errors.SERVER_ERROR, {
+                                    method: "getTransactionCount",
+                                    params: params, result: result, error: error
+                                })];
+                        }
+                        return [2 /*return*/];
                 }
             });
         });
     };
     BaseProvider.prototype.getCode = function (addressOrName, blockTag) {
         return __awaiter(this, void 0, void 0, function () {
-            var params, _a;
-            return __generator(this, function (_b) {
-                switch (_b.label) {
+            var params, result;
+            return __generator(this, function (_a) {
+                switch (_a.label) {
                     case 0: return [4 /*yield*/, this.getNetwork()];
                     case 1:
-                        _b.sent();
+                        _a.sent();
                         return [4 /*yield*/, properties_1.resolveProperties({
                                 address: this._getAddress(addressOrName),
                                 blockTag: this._getBlockTag(blockTag)
                             })];
                     case 2:
-                        params = _b.sent();
-                        _a = bytes_1.hexlify;
+                        params = _a.sent();
                         return [4 /*yield*/, this.perform("getCode", params)];
-                    case 3: return [2 /*return*/, _a.apply(void 0, [_b.sent()])];
+                    case 3:
+                        result = _a.sent();
+                        try {
+                            return [2 /*return*/, bytes_1.hexlify(result)];
+                        }
+                        catch (error) {
+                            return [2 /*return*/, logger.throwError("bad result from backend", logger_1.Logger.errors.SERVER_ERROR, {
+                                    method: "getCode",
+                                    params: params, result: result, error: error
+                                })];
+                        }
+                        return [2 /*return*/];
                 }
             });
         });
     };
     BaseProvider.prototype.getStorageAt = function (addressOrName, position, blockTag) {
         return __awaiter(this, void 0, void 0, function () {
-            var params, _a;
-            return __generator(this, function (_b) {
-                switch (_b.label) {
+            var params, result;
+            return __generator(this, function (_a) {
+                switch (_a.label) {
                     case 0: return [4 /*yield*/, this.getNetwork()];
                     case 1:
-                        _b.sent();
+                        _a.sent();
                         return [4 /*yield*/, properties_1.resolveProperties({
                                 address: this._getAddress(addressOrName),
                                 blockTag: this._getBlockTag(blockTag),
                                 position: Promise.resolve(position).then(function (p) { return bytes_1.hexValue(p); })
                             })];
                     case 2:
-                        params = _b.sent();
-                        _a = bytes_1.hexlify;
+                        params = _a.sent();
                         return [4 /*yield*/, this.perform("getStorageAt", params)];
-                    case 3: return [2 /*return*/, _a.apply(void 0, [_b.sent()])];
+                    case 3:
+                        result = _a.sent();
+                        try {
+                            return [2 /*return*/, bytes_1.hexlify(result)];
+                        }
+                        catch (error) {
+                            return [2 /*return*/, logger.throwError("bad result from backend", logger_1.Logger.errors.SERVER_ERROR, {
+                                    method: "getStorageAt",
+                                    params: params, result: result, error: error
+                                })];
+                        }
+                        return [2 /*return*/];
                 }
             });
         });
@@ -877,7 +1173,7 @@ var BaseProvider = /** @class */ (function (_super) {
     };
     BaseProvider.prototype.sendTransaction = function (signedTransaction) {
         return __awaiter(this, void 0, void 0, function () {
-            var hexTx, tx, hash, error_2;
+            var hexTx, tx, hash, error_4;
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0: return [4 /*yield*/, this.getNetwork()];
@@ -895,10 +1191,10 @@ var BaseProvider = /** @class */ (function (_super) {
                         hash = _a.sent();
                         return [2 /*return*/, this._wrapTransaction(tx, hash)];
                     case 5:
-                        error_2 = _a.sent();
-                        error_2.transaction = tx;
-                        error_2.transactionHash = tx.hash;
-                        throw error_2;
+                        error_4 = _a.sent();
+                        error_4.transaction = tx;
+                        error_4.transactionHash = tx.hash;
+                        throw error_4;
                     case 6: return [2 /*return*/];
                 }
             });
@@ -926,6 +1222,15 @@ var BaseProvider = /** @class */ (function (_super) {
                             }
                             tx[key] = Promise.resolve(values[key]).then(function (v) { return (v ? bignumber_1.BigNumber.from(v) : null); });
                         });
+                        ["type"].forEach(function (key) {
+                            if (values[key] == null) {
+                                return;
+                            }
+                            tx[key] = Promise.resolve(values[key]).then(function (v) { return ((v != null) ? v : null); });
+                        });
+                        if (values.accessList) {
+                            tx.accessList = this.formatter.accessList(values.accessList);
+                        }
                         ["data"].forEach(function (key) {
                             if (values[key] == null) {
                                 return;
@@ -973,41 +1278,61 @@ var BaseProvider = /** @class */ (function (_super) {
     };
     BaseProvider.prototype.call = function (transaction, blockTag) {
         return __awaiter(this, void 0, void 0, function () {
-            var params, _a;
-            return __generator(this, function (_b) {
-                switch (_b.label) {
+            var params, result;
+            return __generator(this, function (_a) {
+                switch (_a.label) {
                     case 0: return [4 /*yield*/, this.getNetwork()];
                     case 1:
-                        _b.sent();
+                        _a.sent();
                         return [4 /*yield*/, properties_1.resolveProperties({
                                 transaction: this._getTransactionRequest(transaction),
                                 blockTag: this._getBlockTag(blockTag)
                             })];
                     case 2:
-                        params = _b.sent();
-                        _a = bytes_1.hexlify;
+                        params = _a.sent();
                         return [4 /*yield*/, this.perform("call", params)];
-                    case 3: return [2 /*return*/, _a.apply(void 0, [_b.sent()])];
+                    case 3:
+                        result = _a.sent();
+                        try {
+                            return [2 /*return*/, bytes_1.hexlify(result)];
+                        }
+                        catch (error) {
+                            return [2 /*return*/, logger.throwError("bad result from backend", logger_1.Logger.errors.SERVER_ERROR, {
+                                    method: "call",
+                                    params: params, result: result, error: error
+                                })];
+                        }
+                        return [2 /*return*/];
                 }
             });
         });
     };
     BaseProvider.prototype.estimateGas = function (transaction) {
         return __awaiter(this, void 0, void 0, function () {
-            var params, _a, _b;
-            return __generator(this, function (_c) {
-                switch (_c.label) {
+            var params, result;
+            return __generator(this, function (_a) {
+                switch (_a.label) {
                     case 0: return [4 /*yield*/, this.getNetwork()];
                     case 1:
-                        _c.sent();
+                        _a.sent();
                         return [4 /*yield*/, properties_1.resolveProperties({
                                 transaction: this._getTransactionRequest(transaction)
                             })];
                     case 2:
-                        params = _c.sent();
-                        _b = (_a = bignumber_1.BigNumber).from;
+                        params = _a.sent();
                         return [4 /*yield*/, this.perform("estimateGas", params)];
-                    case 3: return [2 /*return*/, _b.apply(_a, [_c.sent()])];
+                    case 3:
+                        result = _a.sent();
+                        try {
+                            return [2 /*return*/, bignumber_1.BigNumber.from(result)];
+                        }
+                        catch (error) {
+                            return [2 /*return*/, logger.throwError("bad result from backend", logger_1.Logger.errors.SERVER_ERROR, {
+                                    method: "estimateGas",
+                                    params: params, result: result, error: error
+                                })];
+                        }
+                        return [2 /*return*/];
                 }
             });
         });
@@ -1032,7 +1357,7 @@ var BaseProvider = /** @class */ (function (_super) {
     };
     BaseProvider.prototype._getBlock = function (blockHashOrBlockTag, includeTransactions) {
         return __awaiter(this, void 0, void 0, function () {
-            var blockNumber, params, _a, _b, _c, error_3;
+            var blockNumber, params, _a, _b, _c, error_5;
             var _this = this;
             return __generator(this, function (_d) {
                 switch (_d.label) {
@@ -1061,7 +1386,7 @@ var BaseProvider = /** @class */ (function (_super) {
                         }
                         return [3 /*break*/, 6];
                     case 5:
-                        error_3 = _d.sent();
+                        error_5 = _d.sent();
                         logger.throwArgumentError("invalid block hash or block tag", "blockHashOrBlockTag", blockHashOrBlockTag);
                         return [3 /*break*/, 6];
                     case 6: return [2 /*return*/, web_1.poll(function () { return __awaiter(_this, void 0, void 0, function () {
@@ -1295,6 +1620,22 @@ var BaseProvider = /** @class */ (function (_super) {
             });
         });
     };
+    BaseProvider.prototype.getResolver = function (name) {
+        return __awaiter(this, void 0, void 0, function () {
+            var address;
+            return __generator(this, function (_a) {
+                switch (_a.label) {
+                    case 0: return [4 /*yield*/, this._getResolver(name)];
+                    case 1:
+                        address = _a.sent();
+                        if (address == null) {
+                            return [2 /*return*/, null];
+                        }
+                        return [2 /*return*/, new Resolver(this, address, name)];
+                }
+            });
+        });
+    };
     BaseProvider.prototype._getResolver = function (name) {
         return __awaiter(this, void 0, void 0, function () {
             var network, transaction, _a, _b;
@@ -1320,12 +1661,12 @@ var BaseProvider = /** @class */ (function (_super) {
     };
     BaseProvider.prototype.resolveName = function (name) {
         return __awaiter(this, void 0, void 0, function () {
-            var resolverAddress, transaction, _a, _b;
-            return __generator(this, function (_c) {
-                switch (_c.label) {
+            var resolver;
+            return __generator(this, function (_a) {
+                switch (_a.label) {
                     case 0: return [4 /*yield*/, name];
                     case 1:
-                        name = _c.sent();
+                        name = _a.sent();
                         // If it is already an address, nothing to resolve
                         try {
                             return [2 /*return*/, Promise.resolve(this.formatter.address(name))];
@@ -1339,19 +1680,14 @@ var BaseProvider = /** @class */ (function (_super) {
                         if (typeof (name) !== "string") {
                             logger.throwArgumentError("invalid ENS name", "name", name);
                         }
-                        return [4 /*yield*/, this._getResolver(name)];
+                        return [4 /*yield*/, this.getResolver(name)];
                     case 2:
-                        resolverAddress = _c.sent();
-                        if (!resolverAddress) {
+                        resolver = _a.sent();
+                        if (!resolver) {
                             return [2 /*return*/, null];
                         }
-                        transaction = {
-                            to: resolverAddress,
-                            data: ("0x3b3b57de" + hash_1.namehash(name).substring(2))
-                        };
-                        _b = (_a = this.formatter).callAddress;
-                        return [4 /*yield*/, this.call(transaction)];
-                    case 3: return [2 /*return*/, _b.apply(_a, [_c.sent()])];
+                        return [4 /*yield*/, resolver.getAddress()];
+                    case 3: return [2 /*return*/, _a.sent()];
                 }
             });
         });

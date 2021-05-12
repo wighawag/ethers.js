@@ -59,16 +59,14 @@ export function pack(writer, coders, values) {
     });
     // Backfill all the dynamic offsets, now that we know the static length
     updateFuncs.forEach((func) => { func(staticWriter.length); });
-    let length = writer.writeBytes(staticWriter.data);
-    length += writer.writeBytes(dynamicWriter.data);
+    let length = writer.appendWriter(staticWriter);
+    length += writer.appendWriter(dynamicWriter);
     return length;
 }
 export function unpack(reader, coders) {
     let values = [];
     // A reader anchored to this base
     let baseReader = reader.subReader(0);
-    // The amount of dynamic data read; to consume later to synchronize
-    let dynamicLength = 0;
     coders.forEach((coder) => {
         let value = null;
         if (coder.dynamic) {
@@ -87,7 +85,6 @@ export function unpack(reader, coders) {
                 value.name = coder.localName;
                 value.type = coder.type;
             }
-            dynamicLength += offsetReader.consumed;
         }
         else {
             try {
@@ -108,9 +105,6 @@ export function unpack(reader, coders) {
             values.push(value);
         }
     });
-    // @TODO: get rid of this an see if it still works?
-    // Consume the dynamic components in the main reader
-    reader.readBytes(dynamicLength);
     // We only output named properties for uniquely named coders
     const uniqueNames = coders.reduce((accum, coder) => {
         const name = coder.localName;
@@ -162,6 +156,15 @@ export class ArrayCoder extends Coder {
         this.coder = coder;
         this.length = length;
     }
+    defaultValue() {
+        // Verifies the child coder is valid (even if the array is dynamic or 0-length)
+        const defaultChild = this.coder.defaultValue();
+        const result = [];
+        for (let i = 0; i < this.length; i++) {
+            result.push(defaultChild);
+        }
+        return result;
+    }
     encode(writer, value) {
         if (!Array.isArray(value)) {
             this._throwError("expected array value", value);
@@ -171,7 +174,7 @@ export class ArrayCoder extends Coder {
             count = value.length;
             writer.writeValue(value.length);
         }
-        logger.checkArgumentCount(count, value.length, "coder array" + (this.localName ? (" " + this.localName) : ""));
+        logger.checkArgumentCount(value.length, count, "coder array" + (this.localName ? (" " + this.localName) : ""));
         let coders = [];
         for (let i = 0; i < value.length; i++) {
             coders.push(this.coder);
@@ -182,6 +185,17 @@ export class ArrayCoder extends Coder {
         let count = this.length;
         if (count === -1) {
             count = reader.readValue().toNumber();
+            // Check that there is *roughly* enough data to ensure
+            // stray random data is not being read as a length. Each
+            // slot requires at least 32 bytes for their value (or 32
+            // bytes as a link to the data). This could use a much
+            // tighter bound, but we are erroring on the side of safety.
+            if (count * 32 > reader._data.length) {
+                logger.throwError("insufficient data length", Logger.errors.BUFFER_OVERRUN, {
+                    length: reader._data.length,
+                    count: count
+                });
+            }
         }
         let coders = [];
         for (let i = 0; i < count; i++) {
